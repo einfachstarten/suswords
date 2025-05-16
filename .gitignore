@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+games/*.json
+games/*_v*.json
+.env

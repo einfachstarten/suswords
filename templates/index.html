@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SusWords</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#1d1b3a">
+  <style>
+    :root {
+      --bg: #0e0d1d;
+      --panel: #1a1830;
+      --highlight: #00f0ff;
+      --accent: #ffcc00;
+      --text: #ffffff;
+      --muted: #aaa;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Rubik', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .splash {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+    }
+
+    .splash img {
+      max-width: 90%;
+      max-height: 80%;
+    }
+
+    .progress-bar {
+      width: 80%;
+      height: 6px;
+      background: #222;
+      margin-top: 20px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: var(--highlight);
+      animation: fillBar 5s linear forwards;
+    }
+
+    @keyframes fillBar {
+      to { width: 100%; }
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1, h2 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--highlight);
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      color: var(--accent);
+      margin-top: 30px;
+    }
+
+    .panel {
+      background: var(--panel);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      margin-top: 40px;
+      animation: fadeIn 1s ease-out;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .start-btn {
+      display: inline-block;
+      background: var(--highlight);
+      color: #000;
+      font-weight: bold;
+      font-size: 1.1em;
+      padding: 12px 24px;
+      border-radius: 8px;
+      margin-top: 25px;
+      text-decoration: none;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+      transition: transform 0.2s;
+    }
+
+    .start-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #ccc;
+    }
+
+    .footer span {
+      color: #ff4d4d;
+      font-weight: bold;
+    }
+
+    /* Feature Table */
+    .feature-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5em;
+      text-align: left;
+    }
+
+    .feature-table td {
+      vertical-align: top;
+      padding: 8px 0;
+    }
+
+    .feature-table .emoji {
+      width: 32px;
+      text-align: center;
+      font-size: 1.3em;
+    }
+
+    .feature-table .desc {
+      color: #ddd;
+      font-size: 1em;
+      opacity: 0;
+      transform: translateX(-40px);
+      animation: slideIn 0.6s ease-out forwards;
+    }
+
+    .feature-table tr:nth-child(1) .desc { animation-delay: 0.2s; }
+    .feature-table tr:nth-child(2) .desc { animation-delay: 0.4s; }
+    .feature-table tr:nth-child(3) .desc { animation-delay: 0.6s; }
+    .feature-table tr:nth-child(4) .desc { animation-delay: 0.8s; }
+
+    @keyframes slideIn {
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      .start-btn {
+        font-size: 1em;
+        padding: 10px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="splash" id="splashScreen">
+    <img src="/static/suswords_splash.png" alt="SusWords Splash">
+    <div class="progress-bar"><div class="progress-fill"></div></div>
+  </div>
+
+  <div class="container" id="mainContent" style="display:none;">
+    <div class="panel">
+      <h1>🕵️ Willkommen bei SusWords</h1>
+      <h2>Was ist SusWords?</h2>
+      <p>In <strong>SusWords</strong> erhält jeder Spieler ein geheimes Wort – <em>außer einer</em>. Diese Person ist der Impostor und kennt das Wort nicht!</p>
+
+      <table class="feature-table">
+        <tr>
+          <td class="emoji">🔑</td>
+          <td class="desc">Jeder Spieler gibt ein Hinweiswort zum gesuchten Begriff.</td>
+        </tr>
+        <tr>
+          <td class="emoji">🕵️</td>
+          <td class="desc">Der Impostor muss bluffen und ein glaubwürdiges Wort erfinden.</td>
+        </tr>
+        <tr>
+          <td class="emoji">🧠</td>
+          <td class="desc">Am Ende wird abgestimmt, wer verdächtig wirkt.</td>
+        </tr>
+        <tr>
+          <td class="emoji">🏆</td>
+          <td class="desc">Wird der Impostor enttarnt? Oder blufft er sich durch?</td>
+        </tr>
+      </table>
+
+      <p><em>Starte ein Spiel, sende den Link an deine Freunde, und los geht's!</em></p>
+      <a href="/create" class="start-btn">🎮 Spiel starten</a>
+    </div>
+
+    <div class="footer">✨ Designed with <span>❤️</span> by <strong>Einfach Starten</strong></div>
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('splashScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+      }, 5000); // 5 Sekunden Splash
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(err => {
+        console.error('SW registration failed:', err);
+      });
+    }
+  </script>
+</body>
+</html>

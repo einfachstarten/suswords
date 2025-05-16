@@ -1,0 +1,21 @@
+{
+  "name": "SusWords",
+  "short_name": "SusWords",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0c1c",
+  "theme_color": "#00f0ff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/suswords_icon192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/static/suswords_icon512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

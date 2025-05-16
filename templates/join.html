@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>SusWords – Beitreten</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <style>
+    :root {
+      --bg: #1d1b3a;
+      --panel: #2c294d;
+      --highlight: #00f0ff;
+      --accent: #ffcc00;
+      --text: #ffffff;
+      --muted: #888;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rubik', sans-serif;
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--highlight);
+      text-align: center;
+      margin: 20px 0 10px;
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      background: var(--panel);
+      border-radius: 12px;
+      box-shadow: 0 0 15px var(--highlight);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .logo {
+      max-width: 300px;
+      margin: 0 auto 20px;
+      display: block;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: none;
+      background: #1b1a2e;
+      color: var(--text);
+      font-size: 1em;
+    }
+
+    button {
+      background: var(--highlight);
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 1em;
+    }
+
+    button:hover {
+      background: #00e6e6;
+    }
+
+    #waitingMessage {
+      margin-top: 20px;
+      font-size: 0.9em;
+      color: var(--muted);
+    }
+
+    .game-id {
+      margin: 10px 0;
+      font-size: 1.1em;
+      color: var(--accent);
+    }
+
+    .mute-btn {
+      margin-top: 10px;
+      background: transparent;
+      border: 1px solid var(--highlight);
+      color: var(--highlight);
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5em; }
+      .container { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <img src="/static/suswords.png" alt="SusWords Logo" class="logo">
+
+  <div class="container">
+    <h1>🎮 Du wurdest zu einem Spiel eingeladen!</h1>
+    <div class="game-id">Spiel-ID: <strong>{{ game_id }}</strong></div>
+    <input type="text" id="playerName" placeholder="Dein Name">
+    <button onclick="joinGame()">🚀 Beitreten</button>
+    <button id="muteBtn" class="mute-btn" onclick="toggleMute()">🔊 Musik aus</button>
+    <div id="waitingMessage" style="display:none;">🕒 Warte auf Spielstart durch den Spielleiter...</div>
+  </div>
+
+  <audio id="lobbyMusic" src="/static/suswords.mp3" loop autoplay></audio>
+
+  <script>
+    const gameId = '{{ game_id }}';
+    const music = document.getElementById("lobbyMusic");
+    const muteBtn = document.getElementById("muteBtn");
+
+    function toggleMute() {
+      music.muted = !music.muted;
+      muteBtn.innerText = music.muted ? "🔈 Musik an" : "🔊 Musik aus";
+    }
+
+    async function joinGame() {
+      const name = document.getElementById("playerName").value.trim();
+      if (!name) return alert("Bitte gib einen Namen ein.");
+
+      const res = await fetch("/join_game", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId, name })
+      });
+
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+
+      document.getElementById("playerName").style.display = "none";
+      document.querySelector("button").style.display = "none";
+      document.getElementById("waitingMessage").style.display = "block";
+      muteBtn.style.display = "none";
+
+      const checkStart = setInterval(async () => {
+        const res = await fetch(`/game_state/${gameId}/${data.player_id}`);
+        const state = await res.json();
+        if (state.game_status === "started") {
+          clearInterval(checkStart);
+          window.location.href = `/game?game_id=${gameId}&player_id=${data.player_id}`;
+        }
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

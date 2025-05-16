@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Impostor Test-UI</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 20px auto; line-height: 1.5; }
+    section { border: 1px solid #ccc; border-radius: 8px; padding: 12px 20px; margin-bottom: 20px; background: #f9f9f9; }
+    h2 { margin-top: 0; }
+    input, select, button { margin: 5px 0; padding: 5px; }
+    pre { background: #efefef; padding: 10px; border-radius: 6px; }
+    label { display: block; margin-top: 10px; }
+    .info { color: #555; font-size: 0.9em; margin-top: 5px; }
+    .highlight { font-weight: bold; color: darkgreen; }
+    .error { color: red; font-weight: bold; }
+    #liveMonitor { padding: 10px; background: #e0f7fa; border: 1px solid #00796b; margin-bottom: 20px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Impostor Test-UI</h1>
+
+  <div id="liveMonitor">⏳ Monitoring wird geladen...</div>
+
+  <section>
+    <h2>1. Spiel erstellen</h2>
+    <button onclick="createGame()">🎲 Neues Spiel erstellen</button>
+    <p id="createdGameId"></p>
+  </section>
+
+  <section>
+    <h2>2. Spiel beitreten</h2>
+    <label>Game ID:</label>
+    <input id="joinGameId" placeholder="Game ID">
+    <label>Spielername:</label>
+    <input id="playerName" placeholder="Name">
+    <button onclick="joinGame()">👤 Beitreten</button>
+    <p id="joinedPlayerId"></p>
+  </section>
+
+  <section>
+    <h2>3. Spiel starten</h2>
+    <input id="startGameId" placeholder="Game ID">
+    <button onclick="startGame()">🚀 Spiel starten</button>
+  </section>
+
+  <section>
+    <h2>4. Spielstatus abrufen</h2>
+    <input id="statusGameId" placeholder="Game ID">
+    <select id="statusPlayerId"></select>
+    <button onclick="getGameState()">📊 Status anzeigen</button>
+    <pre id="gameStateResult"></pre>
+  </section>
+
+  <section>
+    <h2>5. Wort einreichen</h2>
+    <input id="submitGameId" placeholder="Game ID">
+    <select id="submitPlayerId"></select>
+    <input id="submitWord" placeholder="Wort">
+    <button onclick="submitWord()">📝 Wort senden</button>
+  </section>
+
+  <section>
+    <h2>6. Voting starten</h2>
+    <input id="voteGameId" placeholder="Game ID">
+    <select id="voteInitiator"></select>
+    <select id="voteSuspect"></select>
+    <button onclick="startVote()">⚖️ Voting starten</button>
+    <div class="info" id="votingStatus"></div>
+  </section>
+
+  <section>
+    <h2>7. Stimme abgeben</h2>
+    <input id="castGameId" placeholder="Game ID">
+    <select id="castVoterId"></select>
+    <select id="castVote">
+      <option value="up">✅ Ja</option>
+      <option value="down">❌ Nein</option>
+    </select>
+    <button onclick="castVote()">🗳️ Stimme senden</button>
+  </section>
+
+  <section>
+    <h2>8. Voting auswerten</h2>
+    <input id="revealGameId" placeholder="Game ID">
+    <button onclick="revealVote()">📣 Voting auflösen</button>
+    <pre id="revealResult"></pre>
+  </section>
+
+  <section>
+    <h2>9. Spieler & Debug anzeigen</h2>
+    <input id="listGameId" placeholder="Game ID">
+    <button onclick="debugGame()">🔍 Debug anzeigen</button>
+    <pre id="playerList"></pre>
+  </section>
+
+  <script>
+    const BASE = "https://impostor.pythonanywhere.com";
+    let currentGameId = null;
+    let currentPlayers = [];
+    let monitorInterval = null;
+
+    function setGameIdFields(gameId) {
+      ["joinGameId","startGameId","statusGameId","submitGameId","voteGameId","castGameId","revealGameId","listGameId"].forEach(id => {
+        document.getElementById(id).value = gameId;
+      });
+    }
+
+    function populatePlayerDropdowns(players) {
+      const dropdowns = ["statusPlayerId","submitPlayerId","voteInitiator","voteSuspect","castVoterId"];
+      dropdowns.forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = "";
+        players.forEach(p => {
+          const o = document.createElement("option");
+          o.value = p.player_id;
+          o.textContent = `${p.name} (${p.player_id})`;
+          sel.appendChild(o);
+        });
+      });
+    }
+
+    async function refreshPlayers() {
+      if (!currentGameId) return;
+      const res = await fetch(`${BASE}/players_in_game/${currentGameId}`);
+      const data = await res.json();
+      currentPlayers = data.players;
+      populatePlayerDropdowns(currentPlayers);
+    }
+
+    async function createGame() {
+      const res = await fetch(`${BASE}/create_game`, { method: 'POST' });
+      const data = await res.json();
+      document.getElementById("createdGameId").innerText = `Spiel erstellt: ${data.game_id}`;
+      currentGameId = data.game_id;
+      setGameIdFields(currentGameId);
+      await refreshPlayers();
+      startMonitoring();
+    }
+
+    async function joinGame() {
+      const gameId = document.getElementById("joinGameId").value;
+      const name = document.getElementById("playerName").value;
+      const res = await fetch(`${BASE}/join_game`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId, name })
+      });
+      const data = await res.json();
+      document.getElementById("joinedPlayerId").innerText = JSON.stringify(data);
+      currentGameId = gameId;
+      await refreshPlayers();
+      startMonitoring();
+    }
+
+    async function startGame() {
+      const gameId = document.getElementById("startGameId").value;
+      const res = await fetch(`${BASE}/start_game`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert("Fehler: " + data.error);
+      } else {
+        alert("Spiel gestartet!");
+        await refreshPlayers();
+      }
+    }
+
+    async function updateLiveMonitor() {
+      if (!currentGameId || currentPlayers.length === 0) {
+        document.getElementById("liveMonitor").innerText = "🔄 Noch keine Spieldaten";
+        return;
+      }
+      try {
+        const stateRes = await fetch(`${BASE}/game_state/${currentGameId}/${currentPlayers[0].player_id}`);
+        const state = await stateRes.json();
+        document.getElementById("liveMonitor").innerHTML = `🎯 <b>Aktueller Spieler:</b> ${state.current_player || '–'}<br>
+        🎮 <b>Status:</b> ${state.game_status}<br>
+        🕵️‍♀️ <b>Geheimes Wort (falls sichtbar):</b> ${state.your_word || '–'}`;
+      } catch (err) {
+        document.getElementById("liveMonitor").innerText = "⚠️ Fehler beim Monitoring";
+      }
+    }
+
+    function startMonitoring() {
+      if (monitorInterval) return;
+      monitorInterval = setInterval(updateLiveMonitor, 3000);
+    }
+
+    async function getGameState() {
+      const gameId = document.getElementById("statusGameId").value;
+      const playerId = document.getElementById("statusPlayerId").value;
+      const res = await fetch(`${BASE}/game_state/${gameId}/${playerId}`);
+      const data = await res.json();
+      document.getElementById("gameStateResult").innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function submitWord() {
+      const game_id = document.getElementById("submitGameId").value;
+      const player_id = document.getElementById("submitPlayerId").value;
+      const word = document.getElementById("submitWord").value;
+      const res = await fetch(`${BASE}/submit_word`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id, player_id, word })
+      });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      else alert("Wort gespeichert");
+    }
+
+    async function startVote() {
+      const game_id = document.getElementById("voteGameId").value;
+      const initiator_id = document.getElementById("voteInitiator").value;
+      const suspect_id = document.getElementById("voteSuspect").value;
+      const res = await fetch(`${BASE}/start_vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id, initiator_id, suspect_id })
+      });
+      const data = await res.json();
+      if (data.error) {
+        document.getElementById("votingStatus").innerHTML = `<span class='error'>${data.error}</span>`;
+      } else {
+        document.getElementById("votingStatus").innerHTML = `<span class='highlight'>Voting läuft gegen Spieler ${data.suspect}</span>`;
+      }
+    }
+
+    async function castVote() {
+      const game_id = document.getElementById("castGameId").value;
+      const voter_id = document.getElementById("castVoterId").value;
+      const vote = document.getElementById("castVote").value;
+      const res = await fetch(`${BASE}/cast_vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id, voter_id, vote })
+      });
+      const data = await res.json();
+      if (data.error) alert("Fehler: " + data.error);
+      else alert("Stimme abgegeben");
+    }
+
+    async function revealVote() {
+      const game_id = document.getElementById("revealGameId").value;
+      const res = await fetch(`${BASE}/reveal_vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id })
+      });
+      const data = await res.json();
+      document.getElementById("revealResult").innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function debugGame() {
+      const gameId = document.getElementById("listGameId").value;
+      try {
+        const playerRes = await fetch(`${BASE}/players_in_game/${gameId}`);
+        const playerData = await playerRes.json();
+        const players = playerData.players;
+
+        let output = `Spieler im Spiel ${gameId}:\n`;
+
+        for (const player of players) {
+          const stateRes = await fetch(`${BASE}/game_state/${gameId}/${player.player_id}`);
+          const state = await stateRes.json();
+
+          output += `\n👤 ${player.name} [${player.player_id}]\n`;
+          output += `🧩 Rolle: ${state.your_role}\n`;
+          output += `📝 Wort: ${state.your_word ?? "(unbekannt)"}\n`;
+        }
+
+        const anyPlayerId = players[0]?.player_id;
+        if (anyPlayerId) {
+          const res = await fetch(`${BASE}/game_state/${gameId}/${anyPlayerId}`);
+          const state = await res.json();
+
+          output += `\n📚 History:\n`;
+          state.history.forEach(entry => {
+            output += `- ${entry.player_id}: ${entry.word}\n`;
+          });
+
+          output += `\n🎯 Aktuell dran: ${state.current_player}`;
+        }
+
+        document.getElementById("playerList").innerText = output;
+      } catch (err) {
+        document.getElementById("playerList").innerText = `Fehler beim Abrufen: ${err}`;
+      }
+    }
+  </script>
+</body>
+</html>

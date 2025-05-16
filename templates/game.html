@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>SusWords – Spiel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <style>
+    :root {
+      --bg: #1d1b3a;
+      --panel: #2c294d;
+      --highlight: #00f0ff;
+      --accent: #ffcc00;
+      --danger: #ff3260;
+      --success: #4bdc65;
+      --text: #ffffff;
+      --muted: #888;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rubik', sans-serif;
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      display: block;
+      margin: 0 auto 20px;
+      max-width: 300px;
+    }
+
+    #playerNameBanner {
+      font-family: 'Orbitron', sans-serif;
+      text-align: center;
+      font-size: 1.8em;
+      color: var(--highlight);
+      margin-bottom: 20px;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px var(--highlight);
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+
+    input {
+      background: #1b1a2e;
+      color: var(--text);
+    }
+
+    button {
+      background: var(--highlight);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #555;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
+    #susAction {
+      margin-top: 15px;
+    }
+
+    #susAction button {
+      margin-bottom: 5px;
+    }
+
+    #susOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      color: #fff;
+      text-align: center;
+    }
+
+    #susText {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      font-family: 'Orbitron', sans-serif;
+      color: var(--danger);
+    }
+
+    .vote-btns button {
+      font-size: 2em;
+      padding: 20px;
+      width: 120px;
+      margin: 10px;
+    }
+
+    .vote-btns button:first-child {
+      background: var(--success);
+    }
+
+    .vote-btns button:last-child {
+      background: var(--danger);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    #closeVote {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--accent);
+      color: #000;
+      padding: 5px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    #errorMessage {
+      color: #ff5555;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .vote-result {
+      font-size: 1.5em;
+      margin: 20px 0;
+    }
+
+    .word-counter {
+      font-size: 0.8em;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 5px;
+    }
+
+    strike {
+      color: var(--muted);
+      text-decoration: line-through;
+    }
+
+    .game-over {
+      text-align: center;
+      padding: 30px;
+      border-radius: 10px;
+    }
+
+    .game-over h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+
+    .game-over p {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+
+    .game-over button {
+      background: var(--accent);
+      margin-top: 20px;
+      padding: 15px;
+      font-size: 1.2em;
+      max-width: 200px;
+    }
+
+    .success {
+      box-shadow: 0 0 20px var(--success);
+    }
+
+    .danger {
+      box-shadow: 0 0 20px var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/static/suswords.png" alt="SusWords Logo" class="logo">
+    <div id="playerNameBanner">Spieler: ...</div>
+
+    <section id="gameSection">
+      <div id="turnInfo">🎯 <b>Aktueller Spieler:</b> –</div>
+      <div id="status">📝 Geheimes Wort: –</div>
+
+      <div id="wordSection" class="hidden">
+        <label for="hint">Dein Hinweiswort:</label>
+        <input id="hint" placeholder="Dein Hinweiswort" maxlength="30">
+        <div class="word-counter"><span id="charCount">0</span>/30</div>
+        <div id="errorMessage" class="hidden"></div>
+        <button id="submitBtn" disabled>📝 Abschicken</button>
+        <div id="susAction"></div>
+      </div>
+
+      <div>
+        <b>📜 History:</b>
+        <ul id="historyList"></ul>
+      </div>
+    </section>
+  </div>
+
+  <div id="susOverlay">
+    <div id="closeVote">X</div>
+    <div id="susText">...</div>
+    <div class="vote-btns">
+      <button id="voteUpBtn" onclick="castVote('up')">👍</button>
+      <button id="voteDownBtn" onclick="castVote('down')">👎</button>
+    </div>
+    <div id="voteResult" class="vote-result hidden"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameId = urlParams.get("game_id");
+    const playerId = urlParams.get("player_id");
+
+    let playerName = "";
+    let isImpostor = false;
+    let isPolling = false;
+    let isVoting = false;
+    let gamePollingInterval = null;
+    let lastGameState = null;
+    let currentSuspectId = null;
+
+    // Prüfen, ob Game ID und Player ID vorhanden sind
+    if (!gameId || !playerId) {
+      document.getElementById("gameSection").innerHTML =
+        "<div id='errorMessage'>Fehler: Game ID oder Player ID fehlt in der URL.</div>";
+    } else {
+      initGame();
+    }
+
+    async function initGame() {
+      try {
+        await lookupOwnPlayerName();
+        await monitorGame();
+        startGamePolling();
+      } catch (err) {
+        console.error("Fehler beim Initialisieren des Spiels:", err);
+        document.getElementById("gameSection").innerHTML =
+          `<div id='errorMessage'>Fehler beim Starten des Spiels: ${err.message}</div>`;
+      }
+    }
+
+    function startGamePolling() {
+      if (gamePollingInterval) clearInterval(gamePollingInterval);
+      gamePollingInterval = setInterval(monitorGame, 3000);
+    }
+
+    async function lookupOwnPlayerName() {
+      try {
+        const res = await fetch(`/players_in_game/${gameId}`);
+        if (!res.ok) throw new Error(`Server-Fehler: ${res.status}`);
+
+        const data = await res.json();
+        const player = data.players.find(p => p.player_id === playerId);
+
+        if (!player) {
+          throw new Error("Spieler nicht im Spiel gefunden");
+        }
+
+        playerName = player.name;
+        document.getElementById("playerNameBanner").innerText = `🎮 Spieler: ${playerName}`;
+        return data;
+      } catch (err) {
+        console.error("Fehler beim Abrufen des Spielernamens:", err);
+        document.getElementById("playerNameBanner").innerHTML =
+          `Spieler: <span style="color: #ff5555">Verbindungsfehler</span>`;
+        throw err;
+      }
+    }
+
+    async function monitorGame() {
+      if (isPolling) return; // Verhindert parallele Aufrufe
+      isPolling = true;
+
+      try {
+        const res = await fetch(`/game_state/${gameId}/${playerId}`);
+        if (!res.ok) throw new Error(`Server-Fehler: ${res.status}`);
+
+        const data = await res.json();
+
+        // Prüfen, ob das Spiel beendet wurde
+        if (data.game_status === "finished") {
+          showGameOverScreen(data);
+          clearInterval(gamePollingInterval);
+          return;
+        }
+
+        // Prüfen, ob Spieler eliminiert wurde
+        if (data.status === "eliminated") {
+          document.getElementById("gameSection").innerHTML =
+            `<div id='errorMessage'>${data.message || "Du wurdest aus dem Spiel entfernt!"}</div>`;
+          clearInterval(gamePollingInterval);
+          return;
+        }
+
+        if (!data || data.error) {
+          throw new Error(data?.error || "Unbekannter Serverfehler");
+        }
+
+        console.log("[monitorGame] Serverdaten:", data);
+        lastGameState = data;
+
+        try {
+          // Spielerliste holen
+          const playersRes = await fetch(`/players_in_game/${gameId}`);
+          if (!playersRes.ok) throw new Error(`Fehler beim Laden der Spielerliste: ${playersRes.status}`);
+          const playersData = await playersRes.json();
+
+          console.log("[monitorGame] Spielerdaten:", playersData);
+
+          // Prüfen, ob nur noch zwei Spieler übrig sind (Impostor und ein weiterer)
+          const activePlayers = playersData.players.filter(p => !p.eliminated);
+
+          updateGameUI(data, playersData);
+          checkForActiveVote(data);
+        } catch (playersErr) {
+          console.error("Fehler beim Laden der Spielerliste:", playersErr);
+          // Wir aktualisieren trotzdem die UI mit den verfügbaren Daten
+          updateGameUI(data, { players: [] });
+        }
+      } catch (err) {
+        console.error("Fehler beim Aktualisieren des Spielstatus:", err);
+        document.getElementById("status").innerHTML =
+          `<span style="color: #ff5555">Verbindungsfehler: ${err.message}</span>`;
+      } finally {
+        isPolling = false;
+      }
+    }
+
+    function showGameOverScreen(data) {
+      const isImpostor = data.your_role === "impostor";
+      const impostorWon = data.winner === "impostor";
+      const secretWord = data.word || data.your_word || "???";
+
+      let message = "";
+      let emoji = "";
+      let colorClass = "";
+
+      if (isImpostor) {
+        // Impostor Ende
+        if (impostorWon) {
+          if (data.end_reason === "word_guessed") {
+            message = "Du hast das Wort erraten und gewonnen!";
+          } else {
+            message = "Du hast gewonnen! Die Spieler konnten dich nicht finden.";
+          }
+          emoji = "🏆";
+          colorClass = "success";
+        } else {
+          message = "Game Over! Du wurdest entlarvt.";
+          emoji = "🚫";
+          colorClass = "danger";
+        }
+      } else {
+        // Normaler Spieler Ende
+        if (impostorWon) {
+          if (data.end_reason === "word_guessed") {
+            message = "Game Over! Der Impostor hat das Wort erraten.";
+          } else {
+            message = "Game Over! Der Impostor hat gewonnen.";
+          }
+          emoji = "💀";
+          colorClass = "danger";
+        } else {
+          message = "Gratulation! Ihr habt den Impostor gefunden und das Spiel gewonnen!";
+          emoji = "🏆";
+          colorClass = "success";
+        }
+      }
+
+      document.getElementById("gameSection").innerHTML = `
+        <div class="game-over ${colorClass}">
+          <h2>${emoji} Spiel beendet ${emoji}</h2>
+          <p>${message}</p>
+          <p>Das geheime Wort war: <strong>${secretWord}</strong></p>
+          <button onclick="location.reload()">Neu starten</button>
+        </div>
+      `;
+    }
+
+    function updateGameUI(data, playersData) {
+      const currentPlayer = data.current_player;
+      const isMyTurn = currentPlayer === data.player_name;
+      isImpostor = data.your_role === "impostor";
+
+      document.getElementById("turnInfo").innerHTML =
+        `🎯 <b>Aktueller Spieler:</b> ${currentPlayer || '-'}`;
+
+      document.getElementById("status").innerHTML = isImpostor
+        ? "🕵️ Du bist der Impostor! Versuche das Wort zu erraten."
+        : `🔤 <b>Geheimes Wort:</b> ${data.your_word || '-'}`;
+
+      const input = document.getElementById("hint");
+      const btn = document.getElementById("submitBtn");
+      document.getElementById("wordSection").classList.toggle("hidden", !isMyTurn);
+
+      // Spielerliste für History-Einträge
+      const playerMap = {};
+      if (playersData && playersData.players) {
+        playersData.players.forEach(p => playerMap[p.player_id] = p.name);
+      }
+
+      if (isMyTurn) {
+        input.disabled = false;
+        input.focus();
+        updateSubmitButton();
+        setupSusButtons(playersData.players || []);
+      } else {
+        input.disabled = true;
+        btn.disabled = true;
+        document.getElementById("susAction").innerHTML = "";
+      }
+
+      // History aktualisieren
+      const historyHtml = data.history.map(entry => {
+        // Name des Spielers finden
+        const playerName = playerMap[entry.player_id] || entry.player_id;
+        // Prüfen, ob der Spieler eliminiert wurde
+        const isEliminated = data.eliminated_players && data.eliminated_players.includes(entry.player_id);
+        // Wenn eliminiert, durchstreichen
+        return isEliminated
+          ? `<li><strike>${playerName}: ${entry.word}</strike></li>`
+          : `<li>${playerName}: ${entry.word}</li>`;
+      }).join("");
+
+      document.getElementById("historyList").innerHTML = historyHtml;
+    }
+
+    function checkForActiveVote(data) {
+      if (!data.active_vote) {
+        // Wenn kein aktives Vote mehr, aber das Overlay ist noch offen
+        if (document.getElementById("susOverlay").style.display === "flex" &&
+            document.getElementById("voteResult").classList.contains("hidden")) {
+          hideSusOverlay();
+        }
+        return;
+      }
+
+      // Prüfen, ob das Overlay für alle ausgeblendet werden soll
+      if (data.active_vote.overlay_hidden) {
+        hideSusOverlay();
+        // Nach kurzer Verzögerung das Vote komplett löschen
+        setTimeout(async () => {
+          try {
+            await fetch("/clear_vote", {
+              method: "POST",
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game_id: gameId })
+            });
+          } catch (err) {
+            console.error("Fehler beim Löschen des Votings:", err);
+          }
+          await monitorGame();
+        }, 500);
+        return;
+      }
+
+      const isPlayerSuspect = data.active_vote.suspect_id === playerId;
+      currentSuspectId = data.active_vote.suspect_id;
+
+      // Die Namen kommen jetzt direkt vom Server
+      const initiatorName = data.active_vote.initiator_name || "Unbekannt";
+      const suspectName = data.active_vote.suspect_name || "Unbekannt";
+
+      console.log("Vote-Daten:", {
+        suspectId: data.active_vote.suspect_id,
+        suspectName,
+        initiatorId: data.active_vote.initiator_id,
+        initiatorName,
+        isPlayerSuspect
+      });
+
+      // Wenn wir das Overlay noch nicht anzeigen oder wenn es ein neues Vote ist
+      if (document.getElementById("susOverlay").style.display !== "flex" ||
+          document.getElementById("susText").innerText !== `${initiatorName} SUSST ${suspectName}`) {
+
+        // Prüfen ob Spieler bereits abgestimmt hat
+        const hasVoted = data.active_vote.votes && data.active_vote.votes[playerId];
+
+        showSusOverlay(initiatorName, suspectName, isPlayerSuspect, hasVoted);
+      }
+
+      // Vote-Ergebnisse prüfen, falls sich etwas geändert hat
+      updateVoteResults(data.active_vote);
+    }
+
+    function updateVoteResults(voteData) {
+      if (!voteData || !voteData.votes) return;
+
+      const votes = voteData.votes;
+      let upVotes = 0;
+      let downVotes = 0;
+
+      // Stimmen zählen
+      Object.values(votes).forEach(vote => {
+        if (vote === 'up') upVotes++;
+        else if (vote === 'down') downVotes++;
+      });
+
+      // Wenn Abstimmung bereits abgeschlossen ist
+      if (voteData.result) {
+        document.getElementById("voteResult").classList.remove("hidden");
+
+        let resultText = "";
+        switch (voteData.result) {
+          case "impostor_eliminated":
+            resultText = "Der Impostor wurde entfernt! Spiel vorbei! (👍 " + upVotes + " vs 👎 " + downVotes + ")";
+            break;
+          case "impostor_wins":
+            resultText = "Der Impostor hat gewonnen! (👍 " + upVotes + " vs 👎 " + downVotes + ")";
+            break;
+          case "player_eliminated":
+            resultText = "Spieler wurde entfernt! (👍 " + upVotes + " vs 👎 " + downVotes + ")";
+            break;
+          case "vote_failed":
+            resultText = "Spieler bleibt im Spiel! (👍 " + upVotes + " vs 👎 " + downVotes + ")";
+            break;
+          default:
+            resultText = "Abstimmung abgeschlossen! (👍 " + upVotes + " vs 👎 " + downVotes + ")";
+        }
+
+        document.getElementById("voteResult").innerHTML = resultText;
+        document.querySelector(".vote-btns").style.display = "none";
+
+        // Overlay nach kurzer Verzögerung ausblenden, wenn das Ergebnis da ist
+        setTimeout(async () => {
+          // Vote auf dem Server markieren, dass das Overlay bei allen ausgeblendet werden soll
+          try {
+            await fetch("/end_vote", {
+              method: "POST",
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ game_id: gameId })
+            });
+          } catch (err) {
+            console.error("Fehler beim Beenden des Votings:", err);
+          }
+
+          // Spiel aktualisieren
+          await monitorGame();
+        }, 3000);
+      }
+    }
+
+    function updateSubmitButton() {
+      const input = document.getElementById("hint");
+      const btn = document.getElementById("submitBtn");
+      const errorMsg = document.getElementById("errorMessage");
+      const charCount = document.getElementById("charCount");
+
+      const word = input.value.trim();
+      charCount.textContent = word.length;
+
+      if (word.length === 0) {
+        btn.disabled = true;
+        errorMsg.classList.add("hidden");
+        return;
+      }
+
+      if (!/^[\wäöüÄÖÜß]+$/.test(word)) {
+        btn.disabled = true;
+        errorMsg.innerText = "Bitte nur Buchstaben und Zahlen verwenden";
+        errorMsg.classList.remove("hidden");
+        return;
+      }
+
+      errorMsg.classList.add("hidden");
+      btn.disabled = false;
+      btn.onclick = () => submitWord(word);
+    }
+
+    document.getElementById("hint").addEventListener("input", updateSubmitButton);
+
+    async function submitWord(word) {
+      if (!word) return;
+
+      const btn = document.getElementById("submitBtn");
+      const originalText = btn.innerHTML;
+      btn.innerHTML = "Wird gesendet... <span class='loading'></span>";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/submit_word`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            player_id: playerId,
+            word: word.trim()
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server-Fehler: ${res.status}`);
+        }
+
+        document.getElementById("hint").value = "";
+        document.getElementById("charCount").textContent = "0";
+        await monitorGame();
+      } catch (err) {
+        console.error("Fehler beim Senden des Wortes:", err);
+        const errorMsg = document.getElementById("errorMessage");
+        errorMsg.innerText = `Fehler beim Senden: ${err.message}`;
+        errorMsg.classList.remove("hidden");
+      } finally {
+        btn.innerHTML = originalText;
+        updateSubmitButton();
+      }
+    }
+
+    function setupSusButtons(players) {
+      if (!players || !Array.isArray(players) || players.length === 0) {
+        console.warn("[setupSusButtons] Keine Spieler gefunden");
+        return;
+      }
+
+      // Nur aktive Spieler anzeigen (nicht eliminierte)
+      const suspects = players.filter(p =>
+        p.player_id !== playerId &&
+        !p.eliminated &&
+        !lastGameState?.eliminated_players?.includes(p.player_id)
+      );
+
+      const container = document.getElementById("susAction");
+      container.innerHTML = "<label>🕵️ Verdächtigen:</label><br>";
+
+      if (suspects.length === 0) {
+        container.innerHTML += "<p>Keine weiteren Spieler verfügbar!</p>";
+        return;
+      }
+
+      suspects.forEach(p => {
+        const btn = document.createElement("button");
+        btn.textContent = `SUS ${p.name}`;
+        btn.onclick = () => {
+          if (!isVoting) startVote(p.player_id, p.name);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    async function startVote(suspectId, suspectName) {
+      if (isVoting) return; // Verhindert mehrfache Votes
+      isVoting = true;
+
+      try {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = `SUS wird gestartet...`;
+        btn.disabled = true;
+
+        const res = await fetch("/start_vote", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            initiator_id: playerId,
+            suspect_id: suspectId
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server-Fehler: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (data.status === "vote_started") {
+          // Wir verwenden die Namen aus der Serverantwort
+          currentSuspectId = suspectId;
+          const initiatorName = data.initiator_name || playerName;
+          const suspectName = data.suspect_name || "Unbekannt";
+
+          console.log("Vote gestartet:", {
+            initiatorName,
+            suspectName
+          });
+
+          showSusOverlay(initiatorName, suspectName, false, false);
+        } else {
+          throw new Error(data.error || "Unbekannter Fehler");
+        }
+
+        // Button zurücksetzen
+        btn.textContent = originalText;
+        btn.disabled = false;
+      } catch (err) {
+        console.error("Fehler beim Starten des Votes:", err);
+        alert(`Fehler beim Starten des Votes: ${err.message}`);
+
+        // Alle SUS-Buttons zurücksetzen
+        const btns = document.querySelectorAll("#susAction button");
+        btns.forEach(b => {
+          b.disabled = false;
+          if (b.textContent.includes("wird gestartet")) {
+            b.textContent = b.textContent.replace("wird gestartet...", "");
+          }
+        });
+      } finally {
+        isVoting = false;
+      }
+    }
+
+    function showSusOverlay(from, to, isPlayerSuspect, hasVoted) {
+      console.log("[SUS] Overlay anzeigen:", from, "susst", to, "isPlayerSuspect:", isPlayerSuspect, "hasVoted:", hasVoted);
+
+      // Text im Overlay setzen
+      document.getElementById("susText").innerText = `${from} SUSST ${to}`;
+      document.getElementById("susOverlay").style.display = "flex";
+
+      // Vorbereitung für die Vote-Anzeige
+      document.getElementById("voteResult").classList.add("hidden");
+
+      // Das X zum Schließen anzeigen/verstecken
+      document.getElementById("closeVote").classList.toggle("hidden", isPlayerSuspect);
+
+      // Vote-Buttons nur anzeigen, wenn der Spieler nicht der Verdächtige ist und noch nicht abgestimmt hat
+      if (isPlayerSuspect) {
+        document.querySelector(".vote-btns").style.display = "none";
+        document.getElementById("voteResult").classList.remove("hidden");
+        document.getElementById("voteResult").innerHTML = "Du wirst verdächtigt! Warte auf die Abstimmung...";
+      } else if (hasVoted) {
+        document.querySelector(".vote-btns").style.display = "none";
+        document.getElementById("voteResult").classList.remove("hidden");
+        document.getElementById("voteResult").innerHTML = "Du hast bereits abgestimmt!";
+      } else {
+        document.querySelector(".vote-btns").style.display = "flex";
+        document.getElementById("voteUpBtn").disabled = false;
+        document.getElementById("voteDownBtn").disabled = false;
+      }
+    }
+
+    function hideSusOverlay() {
+      document.getElementById("susOverlay").style.display = "none";
+      document.getElementById("voteResult").classList.add("hidden");
+      currentSuspectId = null;
+    }
+
+    document.getElementById("closeVote").addEventListener("click", hideSusOverlay);
+
+    async function castVote(vote) {
+      // Prüfen ob der Spieler der Verdächtigte ist
+      if (currentSuspectId === playerId) {
+        alert("Du kannst nicht über dich selbst abstimmen!");
+        return;
+      }
+
+      const upBtn = document.getElementById("voteUpBtn");
+      const downBtn = document.getElementById("voteDownBtn");
+      upBtn.disabled = true;
+      downBtn.disabled = true;
+
+      const clickedBtn = vote === 'up' ? upBtn : downBtn;
+      const originalHTML = clickedBtn.innerHTML;
+      clickedBtn.innerHTML = `<span class='loading'></span>`;
+
+      try {
+        const res = await fetch("/cast_vote", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            voter_id: playerId,
+            vote
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server-Fehler: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        document.querySelector(".vote-btns").style.display = "none";
+        document.getElementById("voteResult").classList.remove("hidden");
+
+        // Wenn die Abstimmung abgeschlossen ist
+        if (data.status === "vote_completed") {
+          let resultText = "";
+          switch (data.result) {
+            case "impostor_eliminated":
+              resultText = "Der Impostor wurde entfernt! Spiel vorbei!";
+              break;
+            case "impostor_wins":
+              resultText = "Der Impostor hat gewonnen!";
+              break;
+            case "player_eliminated":
+              resultText = "Spieler wurde entfernt!";
+              break;
+            case "vote_failed":
+              resultText = "Spieler bleibt im Spiel!";
+              break;
+            default:
+              resultText = "Abstimmung abgeschlossen!";
+          }
+
+          document.getElementById("voteResult").innerHTML =
+            `${resultText} (👍 ${data.up_votes} vs 👎 ${data.down_votes})`;
+        } else {
+          document.getElementById("voteResult").innerHTML = "Danke für dein Vote!";
+        }
+
+        // Spielstatus aktualisieren
+        await monitorGame();
+      } catch (err) {
+        console.error("Fehler beim Abstimmen:", err);
+        clickedBtn.innerHTML = originalHTML;
+        upBtn.disabled = false;
+        downBtn.disabled = false;
+        alert(`Fehler beim Abstimmen: ${err.message}`);
+      }
+    }
+
+    // Event-Listener für die Seite
+    window.addEventListener("beforeunload", () => {
+      if (gamePollingInterval) clearInterval(gamePollingInterval);
+    });
+  </script>
+</body>
+</html>

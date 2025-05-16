@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>SusWords – Spiel erstellen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #1d1b3a;
+      --panel: #2c294d;
+      --highlight: #00f0ff;
+      --accent: #ffcc00;
+      --text: #ffffff;
+      --muted: #888;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rubik', sans-serif;
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--highlight);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .logo {
+      display: block;
+      margin: 0 auto 20px;
+      max-width: 300px;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px var(--highlight);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+
+    input {
+      background: #1b1a2e;
+      color: var(--text);
+    }
+
+    button {
+      background: var(--highlight);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #555;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
+    .copy-btn {
+      background: #333;
+      color: var(--highlight);
+      border: 1px solid var(--highlight);
+    }
+
+    #qrContainer {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #hint {
+      font-size: 0.9em;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #muteBtn {
+      position: relative;
+      display: block;
+      margin: 20px auto 0;
+      background: var(--panel);
+      color: var(--highlight);
+      border: 1px solid var(--highlight);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6em; }
+    }
+  </style>
+</head>
+<body>
+  <audio id="bgMusic" loop autoplay>
+    <source src="/static/suswords.mp3" type="audio/mpeg">
+  </audio>
+
+  <div class="container">
+    <img src="/static/suswords.png" alt="SusWords Logo" class="logo">
+    <h1>Spiel erstellen</h1>
+
+    <section id="setupSection">
+      <p>Du bist der <strong>Game Master</strong> und erstellst eine Lobby.<br>Danach erhältst du einen Link, den du mit deinen Freunden teilen kannst.</p>
+      <label>👤 Dein Name:</label>
+      <input id="playerName" placeholder="z. B. Agent Müller">
+      <button onclick="createGame()">🎮 Neues Spiel starten</button>
+    </section>
+
+    <section id="joinLinkBox" class="hidden">
+      <p>🔗 <strong>Beitrittslink:</strong> <span id="joinLink" style="word-break: break-word;"></span></p>
+      <button class="copy-btn" onclick="copyJoinLink()">📋 Link kopieren & teilen</button>
+      <div id="qrContainer" class="hidden">
+        <p><strong>Oder scannen lassen:</strong></p>
+        <div id="qrcode" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <section id="lobbyBox" class="hidden">
+      <h2>👥 Lobby</h2>
+      <ul id="playerList"></ul>
+      <button id="startButton" onclick="startGame()" disabled>🚀 Spiel starten</button>
+      <div id="hint">ℹ️ Mindestens 3 Spieler erforderlich</div>
+    </section>
+
+    <button id="muteBtn" onclick="toggleMute()">🔈 Musik aus</button>
+  </div>
+
+  <script>
+    let gameId = null;
+    let playerId = null;
+    let isMaster = false;
+
+    const bgMusic = document.getElementById("bgMusic");
+    const muteBtn = document.getElementById("muteBtn");
+
+    function toggleMute() {
+      bgMusic.muted = !bgMusic.muted;
+      muteBtn.innerText = bgMusic.muted ? "🔇 Musik an" : "🔈 Musik aus";
+    }
+
+    async function createGame() {
+      const name = document.getElementById("playerName").value.trim();
+      if (!name) return alert("Bitte Namen eingeben!");
+
+      const res = await fetch("/create_game", { method: "POST" });
+      const data = await res.json();
+      gameId = data.game_id;
+
+      const joinRes = await fetch("/join_game", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId, name })
+      });
+      const joinData = await joinRes.json();
+      playerId = joinData.player_id;
+      isMaster = joinData.is_master;
+
+      document.getElementById("setupSection").classList.add("hidden");
+      document.getElementById("joinLink").textContent = `${window.location.origin}/games/${gameId}/join`;
+      document.getElementById("joinLinkBox").classList.remove("hidden");
+      document.getElementById("lobbyBox").classList.remove("hidden");
+
+      document.getElementById("qrContainer").classList.remove("hidden");
+      new QRCode(document.getElementById("qrcode"), {
+        text: `${window.location.origin}/games/${gameId}/join`,
+        width: 180,
+        height: 180,
+        colorDark: "#ffffff",
+        colorLight: "#1d1b3a",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      refreshLobby();
+      setInterval(refreshLobby, 3000);
+    }
+
+    async function refreshLobby() {
+      const res = await fetch(`/players_in_game/${gameId}`);
+      const data = await res.json();
+
+      const ul = document.getElementById("playerList");
+      ul.innerHTML = "";
+      data.players.forEach(p => {
+        const li = document.createElement("li");
+        const admin = p.is_master ? "👑" : "";
+        const role = p.role === "pending" ? "⏳ wartet" : (p.role === "impostor" ? "🕵️" : "✅");
+        li.innerHTML = `${admin} ${p.name} – <span class='pending'>${role}</span>`;
+        ul.appendChild(li);
+      });
+
+      const startBtn = document.getElementById("startButton");
+      const hint = document.getElementById("hint");
+
+      if (isMaster) {
+        if (data.players.length >= 3) {
+          startBtn.disabled = false;
+          hint.style.display = "none";
+        } else {
+          startBtn.disabled = true;
+          hint.style.display = "block";
+        }
+      }
+
+      const state = await fetch(`/game_state/${gameId}/${playerId}`).then(r => r.json());
+      if (state.game_status === "started") {
+        window.location.href = `/game?game_id=${gameId}&player_id=${playerId}`;
+      }
+    }
+
+    async function startGame() {
+      const res = await fetch(`/start_game`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId })
+      });
+
+      const data = await res.json();
+      if (data.status === "started") {
+        window.location.href = `/game?game_id=${gameId}&player_id=${playerId}`;
+      } else {
+        alert("Fehler: " + data.error);
+      }
+    }
+
+    function copyJoinLink() {
+      const link = document.getElementById("joinLink").textContent;
+      navigator.clipboard.writeText(link)
+        .then(() => alert("📋 Link kopiert!"))
+        .catch(() => alert("❌ Konnte Link nicht kopieren."));
+    }
+  </script>
+</body>
+</html>
