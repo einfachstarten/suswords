@@ -4,10 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SusWords</title>
+
+  <!-- PWA Meta-Tags -->
   <link rel="manifest" href="/static/manifest.json">
-  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1d1b3a">
+  <meta name="description" content="Finde den Impostor! Ein spannendes Multiplayer-Wortspiel.">
+
+  <!-- Apple-spezifische Meta-Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SusWords">
+
+  <!-- Icons -->
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="/static/suswords_icon192.png">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+
   <style>
     :root {
       --bg: #0e0d1d;
@@ -168,6 +182,63 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    /* PWA Install Banner */
+    #installBanner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--highlight);
+      color: #000;
+      padding: 15px;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+      box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #installBanner .banner-text {
+      flex: 1;
+    }
+
+    #installBanner h3 {
+      margin: 0 0 5px 0;
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    #installBanner p {
+      margin: 0;
+      color: #000;
+      opacity: 0.8;
+    }
+
+    #installBanner .btn-install {
+      background: var(--bg);
+      color: var(--highlight);
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      margin-left: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #installBanner .btn-close {
+      background: transparent;
+      border: none;
+      color: #000;
+      padding: 5px 10px;
+      margin-left: 5px;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+
+    #installBanner .btn-close:hover {
+      opacity: 1;
+    }
+
+    /* Responsives Design */
     @media (max-width: 600px) {
       .start-btn {
         font-size: 1em;
@@ -210,12 +281,26 @@
 
       <p><em>Starte ein Spiel, sende den Link an deine Freunde, und los geht's!</em></p>
       <a href="/create" class="start-btn">🎮 Spiel starten</a>
+      <div id="pwaInstallContainer" style="margin-top: 15px; display: none;">
+        <button id="pwaInstallBtn" class="start-btn" style="background: var(--accent);">📱 Als App installieren</button>
+      </div>
     </div>
 
     <div class="footer">✨ Designed with <span>❤️</span> by <strong>Einfach Starten</strong></div>
   </div>
 
+  <!-- PWA Installations-Banner -->
+  <div id="installBanner">
+    <div class="banner-text">
+      <h3>SusWords App</h3>
+      <p>Installiere SusWords für ein besseres Spielerlebnis!</p>
+    </div>
+    <button class="btn-install" id="installBtn">Installieren</button>
+    <button class="btn-close" id="closeInstallBtn">✕</button>
+  </div>
+
   <script>
+    // Splash Screen ausblenden nach Laden
     window.addEventListener('load', () => {
       setTimeout(() => {
         document.getElementById('splashScreen').style.display = 'none';
@@ -223,9 +308,155 @@
       }, 5000); // 5 Sekunden Splash
     });
 
+    // PWA Installation Logic
+    let deferredPrompt;
+    const installBanner = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    const closeInstallBtn = document.getElementById('closeInstallBtn');
+    const pwaInstallContainer = document.getElementById('pwaInstallContainer');
+    const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+
+    // Erkennen, ob auf Android oder iOS
+    const isAndroid = () => /Android/i.test(navigator.userAgent);
+    const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = () => isAndroid() || isIOS();
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches;
+
+    // BeforeInstallPrompt Event abfangen (funktioniert hauptsächlich in Chrome)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Standardverhalten verhindern
+      e.preventDefault();
+
+      // Event für später speichern
+      deferredPrompt = e;
+
+      console.log('PWA kann installiert werden!');
+
+      // Prüfen, ob das Banner bereits geschlossen wurde
+      const hiddenUntil = localStorage.getItem('installBannerHiddenUntil');
+      const now = Date.now();
+
+      if (!hiddenUntil || now > parseInt(hiddenUntil)) {
+        // Banner nach einer kurzen Verzögerung anzeigen
+        setTimeout(() => {
+          installBanner.style.display = 'flex';
+        }, 3000);
+      }
+
+      // Auch den Install-Button im Hauptbereich anzeigen
+      pwaInstallContainer.style.display = 'block';
+    });
+
+    // Installation über Banner
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        console.log('Kein Installation-Prompt verfügbar');
+        return;
+      }
+
+      // Installationsprompt anzeigen
+      deferredPrompt.prompt();
+
+      // Warten auf Nutzerentscheidung
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`Nutzer hat Installation ${outcome === 'accepted' ? 'akzeptiert' : 'abgelehnt'}`);
+
+      // deferredPrompt zurücksetzen
+      deferredPrompt = null;
+
+      // Banner ausblenden
+      installBanner.style.display = 'none';
+
+      // Auch den Button im Hauptmenü ausblenden wenn installiert
+      if (outcome === 'accepted') {
+        pwaInstallContainer.style.display = 'none';
+      }
+    });
+
+    // Installation über Hauptmenü-Button
+    pwaInstallBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        // Falls kein Prompt verfügbar, manuell Anleitung anzeigen
+        if (isIOS()) {
+          alert('Zum Installieren: Tippe auf "Teilen" (Symbol unten) und dann auf "Zum Home-Bildschirm".');
+        } else if (isAndroid()) {
+          alert('Zum Installieren: Tippe auf die drei Punkte (Menü) und dann auf "Zum Startbildschirm hinzufügen".');
+        } else {
+          alert('Um SusWords zu installieren, klicke auf das Installations-Symbol in der Adressleiste deines Browsers.');
+        }
+        return;
+      }
+
+      // Prompt anzeigen wenn verfügbar
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+
+      if (outcome === 'accepted') {
+        pwaInstallContainer.style.display = 'none';
+      }
+    });
+
+    // Banner schließen
+    closeInstallBtn.addEventListener('click', () => {
+      installBanner.style.display = 'none';
+
+      // Banner für 7 Tage nicht mehr anzeigen
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      localStorage.setItem('installBannerHiddenUntil', Date.now() + sevenDays);
+    });
+
+    // Event wenn App installiert wurde
+    window.addEventListener('appinstalled', (event) => {
+      console.log('SusWords wurde erfolgreich installiert');
+      installBanner.style.display = 'none';
+      pwaInstallContainer.style.display = 'none';
+
+      // Optional: Tracking oder Bestätigungsmeldung
+      if (!isStandalone()) {
+        setTimeout(() => {
+          alert('Danke für die Installation! Du kannst SusWords jetzt von deinem Startbildschirm aus starten.');
+        }, 1000);
+      }
+    });
+
+    // iOS-spezifische Installation
+    if (isIOS() && !isStandalone()) {
+      // iOS zeigt keinen beforeinstallprompt, daher manuell Banner anzeigen
+      setTimeout(() => {
+        // Prüfen, ob das Banner bereits geschlossen wurde
+        const hiddenUntil = localStorage.getItem('installBannerHiddenUntil');
+        const now = Date.now();
+
+        if (!hiddenUntil || now > parseInt(hiddenUntil)) {
+          installBanner.style.display = 'flex';
+
+          // Text für iOS anpassen
+          const bannerText = installBanner.querySelector('.banner-text');
+          bannerText.innerHTML = '<h3>SusWords App</h3><p>Installiere durch Tippen auf "Teilen" und dann "Zum Home-Bildschirm"</p>';
+
+          // Andere Button-Aktion
+          installBtn.addEventListener('click', () => {
+            alert('Um SusWords zu installieren:\n1. Tippe auf das Teilen-Symbol unten\n2. Scrolle und tippe auf "Zum Home-Bildschirm"');
+            installBanner.style.display = 'none';
+          });
+        }
+
+        // Auch den Button im Hauptmenü anzeigen
+        pwaInstallContainer.style.display = 'block';
+      }, 5000);
+    }
+
+    // Service Worker registrieren
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/sw.js').catch(err => {
-        console.error('SW registration failed:', err);
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => {
+            console.log('ServiceWorker erfolgreich registriert mit Scope:', registration.scope);
+          })
+          .catch(error => {
+            console.error('ServiceWorker Registrierung fehlgeschlagen:', error);
+          });
       });
     }
   </script>

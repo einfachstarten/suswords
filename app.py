@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 import uuid
 import os
 import json
@@ -23,6 +23,10 @@ SECRET_WORDS = [
 
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
+
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory('.', 'sw.js', mimetype='application/javascript')
 
 @app.route("/")
 def landing_page():

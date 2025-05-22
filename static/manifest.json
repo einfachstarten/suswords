@@ -1,21 +1,40 @@
 {
   "name": "SusWords",
   "short_name": "SusWords",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0c1c",
   "theme_color": "#00f0ff",
+  "description": "Finde den Impostor! Ein spannendes Multiplayer-Wortspiel.",
   "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
       "src": "/static/suswords_icon192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "/static/suswords_icon512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/static/screenshot_desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }
