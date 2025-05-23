@@ -16,6 +16,11 @@
       --success: #4bdc65;
       --text: #ffffff;
       --muted: #888;
+      --touch-target: 44px;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
@@ -23,7 +28,8 @@
       font-family: 'Rubik', sans-serif;
       color: var(--text);
       margin: 0;
-      padding: 20px;
+      padding: 16px;
+      min-height: 100vh;
     }
 
     .container {
@@ -34,37 +40,52 @@
     .logo {
       display: block;
       margin: 0 auto 20px;
-      max-width: 300px;
+      max-width: min(300px, 80vw);
+      height: auto;
     }
 
     #playerNameBanner {
       font-family: 'Orbitron', sans-serif;
       text-align: center;
-      font-size: 1.8em;
+      font-size: clamp(1.2rem, 4vw, 1.8rem);
       color: var(--highlight);
       margin-bottom: 20px;
+      padding: 12px;
+      background: var(--panel);
+      border-radius: 12px;
+      border: 2px solid var(--highlight);
     }
 
     section {
       background: var(--panel);
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 20px;
       margin-bottom: 20px;
-      box-shadow: 0 0 10px var(--highlight);
+      box-shadow: 0 4px 12px rgba(0, 240, 255, 0.1);
     }
 
     input, button {
       width: 100%;
-      padding: 10px;
-      margin-top: 10px;
+      padding: 14px 16px;
+      margin-top: 12px;
       border: none;
-      border-radius: 5px;
-      font-size: 1em;
+      border-radius: 8px;
+      font-size: 16px;
+      min-height: var(--touch-target);
+      transition: all 0.2s ease;
+      font-family: inherit;
     }
 
     input {
       background: #1b1a2e;
       color: var(--text);
+      border: 2px solid transparent;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--highlight);
+      box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
     }
 
     button {
@@ -72,26 +93,60 @@
       color: #000;
       font-weight: bold;
       cursor: pointer;
+      border: 2px solid var(--highlight);
+      text-transform: none;
+      margin-bottom: 8px;
+    }
+
+    button:hover, button:focus {
+      background: #00ccff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 240, 255, 0.2);
+    }
+
+    button:active {
+      transform: translateY(0);
     }
 
     button:disabled {
       background: #555;
       color: #aaa;
       cursor: not-allowed;
+      border-color: #555;
+      transform: none;
+      box-shadow: none;
     }
 
     #susAction {
-      margin-top: 15px;
+      margin-top: 16px;
+    }
+
+    #susAction label {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--accent);
+      font-weight: bold;
     }
 
     #susAction button {
-      margin-bottom: 5px;
+      margin-bottom: 8px;
+      background: var(--danger);
+      border-color: var(--danger);
+      color: white;
+      font-size: 1rem;
+      padding: 16px;
     }
 
+    #susAction button:hover, #susAction button:focus {
+      background: #ff1a4d;
+      border-color: #ff1a4d;
+    }
+
+    /* Vote Overlay - Mobile Optimized */
     #susOverlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0,0,0,0.95);
       display: none;
       align-items: center;
       justify-content: center;
@@ -99,28 +154,41 @@
       z-index: 9999;
       color: #fff;
       text-align: center;
+      padding: 20px;
     }
 
     #susText {
-      font-size: 2.5em;
-      margin-bottom: 20px;
+      font-size: clamp(1.5rem, 6vw, 2.5rem);
+      margin-bottom: 24px;
       font-family: 'Orbitron', sans-serif;
       color: var(--danger);
     }
 
+    .vote-btns {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
     .vote-btns button {
-      font-size: 2em;
+      font-size: clamp(1.5rem, 5vw, 2rem);
       padding: 20px;
-      width: 120px;
-      margin: 10px;
+      min-width: 120px;
+      min-height: 80px;
+      margin: 0;
+      border-radius: 12px;
     }
 
     .vote-btns button:first-child {
       background: var(--success);
+      border-color: var(--success);
     }
 
     .vote-btns button:last-child {
       background: var(--danger);
+      border-color: var(--danger);
     }
 
     .hidden {
@@ -133,43 +201,65 @@
       right: 20px;
       background: var(--accent);
       color: #000;
-      padding: 5px 15px;
-      border-radius: 5px;
+      padding: 12px 16px;
+      border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
+      min-width: var(--touch-target);
+      min-height: var(--touch-target);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--accent);
     }
 
     #errorMessage {
       color: #ff5555;
       margin-top: 10px;
       font-weight: bold;
+      padding: 12px;
+      background: rgba(255, 85, 85, 0.1);
+      border-radius: 8px;
+      border: 1px solid #ff5555;
     }
 
     .loading {
-      display: inline-block;
+      position: relative;
+      color: transparent !important;
+    }
+
+    .loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
       width: 20px;
       height: 20px;
-      border: 3px solid rgba(255,255,255,.3);
+      margin: -10px 0 0 -10px;
+      border: 3px solid transparent;
+      border-top: 3px solid currentColor;
       border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-      margin-left: 10px;
+      animation: spin 1s linear infinite;
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .vote-result {
-      font-size: 1.5em;
+      font-size: clamp(1rem, 4vw, 1.5rem);
       margin: 20px 0;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
     }
 
     .word-counter {
-      font-size: 0.8em;
+      font-size: 0.9em;
       color: var(--muted);
       text-align: right;
-      margin-top: 5px;
+      margin-top: 8px;
     }
 
     strike {
@@ -181,102 +271,109 @@
     .game-over {
       text-align: center;
       padding: 30px;
-      border-radius: 10px;
+      border-radius: 12px;
     }
 
     .game-over h2 {
       font-family: 'Orbitron', sans-serif;
-      font-size: 2em;
+      font-size: clamp(1.5rem, 5vw, 2rem);
       margin-bottom: 20px;
     }
 
     .game-over p {
-      font-size: 1.2em;
+      font-size: clamp(1rem, 4vw, 1.2rem);
       margin-bottom: 15px;
-    }
-
-    .game-over button {
-      background: var(--accent);
-      margin-top: 20px;
-      padding: 15px;
-      font-size: 1.2em;
-      max-width: 200px;
+      line-height: 1.4;
     }
 
     .success {
       box-shadow: 0 0 20px var(--success);
+      border: 2px solid var(--success);
     }
 
     .danger {
       box-shadow: 0 0 20px var(--danger);
+      border: 2px solid var(--danger);
     }
 
     .warning {
       box-shadow: 0 0 20px var(--accent);
-    }
-
-    .status-error {
-      color: var(--danger);
+      border: 2px solid var(--accent);
     }
 
     /* Connection status */
     .connection-status {
       position: fixed;
-      bottom: 10px;
-      right: 10px;
-      padding: 5px 10px;
-      border-radius: 5px;
+      bottom: 20px;
+      right: 20px;
+      padding: 8px 12px;
+      border-radius: 20px;
       font-size: 0.8em;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.7);
+      min-width: var(--touch-target);
+      text-align: center;
+      z-index: 1000;
     }
 
     .status-connected {
       color: var(--success);
+      border: 1px solid var(--success);
     }
 
     .status-polling {
       color: var(--accent);
+      border: 1px solid var(--accent);
     }
 
     .status-error {
       color: var(--danger);
+      border: 1px solid var(--danger);
     }
 
     /* Vote status styles */
     .vote-count {
-      margin: 10px 0;
-      font-size: 1.2em;
+      margin: 16px 0;
+      font-size: clamp(1rem, 4vw, 1.2rem);
       color: var(--accent);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
     }
 
     .vote-timer {
       margin-top: 20px;
-      font-size: 1.2em;
+      font-size: clamp(1rem, 4vw, 1.2rem);
       color: var(--text);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
     }
 
     .vote-summary {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 10px;
-      padding: 10px;
-      margin: 15px 0;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px 0;
+      max-width: 90vw;
     }
 
     .vote-summary h3 {
       margin-top: 0;
       color: var(--highlight);
+      font-size: clamp(1rem, 4vw, 1.2rem);
     }
 
     .voter-list {
       list-style: none;
       padding: 0;
-      margin: 10px 0;
+      margin: 12px 0;
       text-align: left;
     }
 
     .voter-list li {
-      padding: 5px;
+      padding: 8px;
       border-bottom: 1px solid #444;
+      font-size: clamp(0.9rem, 3vw, 1rem);
     }
 
     .voter-list .voted-up {
@@ -287,73 +384,165 @@
       color: var(--danger);
     }
 
-    .voter-list .not-voted {
-      color: var(--muted);
-    }
-
     .eliminated-player {
       color: var(--muted);
       text-decoration: line-through;
     }
 
-    /* Simple notification instead of complex overlay */
-    .game-notification {
+    /* Custom Toast System */
+    .toast {
       position: fixed;
-      top: 20px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translate(-50%, -50%);
       background: var(--panel);
       color: var(--text);
-      padding: 15px 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
-      z-index: 10000;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.2em;
-      text-align: center;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
       border: 2px solid var(--highlight);
-      animation: slideInNotification 0.5s ease-out;
-      max-width: 500px;
+      z-index: 10000;
+      min-width: 280px;
+      max-width: 90vw;
+      text-align: center;
+      font-family: 'Orbitron', sans-serif;
+      animation: toastSlideIn 0.3s ease-out;
     }
 
-    .game-notification.success {
+    .toast.success {
       border-color: var(--success);
-      box-shadow: 0 0 20px rgba(75, 220, 101, 0.5);
     }
 
-    .game-notification.danger {
+    .toast.danger {
       border-color: var(--danger);
-      box-shadow: 0 0 20px rgba(255, 50, 96, 0.5);
     }
 
-    .game-notification.warning {
+    .toast.warning {
       border-color: var(--accent);
-      box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
     }
 
-    @keyframes slideInNotification {
+    .toast .toast-icon {
+      font-size: 2.5em;
+      margin-bottom: 12px;
+    }
+
+    .toast .toast-message {
+      font-size: clamp(1rem, 4vw, 1.2rem);
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+
+    .toast .toast-close {
+      background: var(--highlight);
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      min-height: var(--touch-target);
+      width: auto;
+      margin: 0;
+    }
+
+    @keyframes toastSlideIn {
       from {
         opacity: 0;
-        transform: translateX(-50%) translateY(-20px);
+        transform: translate(-50%, -60%);
       }
       to {
         opacity: 1;
-        transform: translateX(-50%) translateY(0);
+        transform: translate(-50%, -50%);
       }
+    }
+
+    /* History list improvements */
+    #historyList {
+      padding: 0;
+      margin: 16px 0;
+    }
+
+    #historyList li {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border-left: 4px solid var(--highlight);
+      font-size: clamp(0.9rem, 3vw, 1rem);
     }
 
     /* Countdown styles */
     #redirectCountdown {
-      font-size: 1em;
+      font-size: clamp(0.9rem, 3vw, 1rem);
       color: var(--accent);
       margin-top: 20px;
       font-family: 'Orbitron', sans-serif;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 8px;
     }
 
     #countdown {
       font-weight: bold;
       color: var(--highlight);
       font-size: 1.2em;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      section {
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .vote-btns {
+        gap: 16px;
+      }
+
+      .vote-btns button {
+        min-width: 100px;
+        min-height: 70px;
+        font-size: 1.5rem;
+      }
+
+      .vote-summary {
+        padding: 12px;
+        margin: 16px 0;
+      }
+
+      .connection-status {
+        bottom: 16px;
+        right: 16px;
+      }
+    }
+
+    /* Improved focus visibility */
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Better touch targets */
+    @media (pointer: coarse) {
+      button {
+        min-height: 48px;
+        padding: 16px;
+      }
+
+      input {
+        min-height: 48px;
+        padding: 16px;
+      }
+
+      #closeVote {
+        min-width: 48px;
+        min-height: 48px;
+        padding: 16px;
+      }
     }
   </style>
 </head>
@@ -383,7 +572,7 @@
   </div>
 
   <div id="susOverlay">
-    <div id="closeVote">X</div>
+    <div id="closeVote">✕</div>
     <div id="susText">...</div>
     <div class="vote-btns">
       <button id="voteUpBtn" onclick="castVote('up')">👍</button>
@@ -399,11 +588,6 @@
 
   <div id="connectionStatus" class="connection-status status-connected">
     Verbunden
-  </div>
-
-  <!-- Simple notification -->
-  <div id="gameNotification" class="game-notification hidden">
-    <div id="notificationText">Benachrichtigung</div>
   </div>
 
   <script>
@@ -423,7 +607,41 @@
     let retryAttempts = 0;
     let maxRetryAttempts = 5;
 
-    // Prüfen, ob Game ID und Player ID vorhanden sind
+    // Custom Toast System
+    function showToast(message, type = 'success', icon = '✅') {
+      const existingToasts = document.querySelectorAll('.toast');
+      existingToasts.forEach(toast => toast.remove());
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-message">${message}</div>
+        <button class="toast-close" onclick="this.parentElement.remove()">OK</button>
+      `;
+
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 4000);
+    }
+
+    function setButtonLoading(button, loading = true) {
+      if (loading) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = 'Wird geladen...';
+        button.classList.add('loading');
+        button.disabled = true;
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.classList.remove('loading');
+        button.disabled = false;
+      }
+    }
+
     if (!gameId || !playerId) {
       document.getElementById("gameSection").innerHTML =
         "<div id='errorMessage'>Fehler: Game ID oder Player ID fehlt in der URL.</div>";
@@ -516,7 +734,6 @@
 
         const data = await res.json();
 
-        // Check for game end
         if (data.game_status === "finished") {
           showGameOverScreen(data);
           clearInterval(gamePollingInterval);
@@ -525,7 +742,6 @@
           return;
         }
 
-        // Check if player is eliminated
         if (data.status === "eliminated") {
           document.getElementById("gameSection").innerHTML =
             `<div id='errorMessage'>${data.message || "Du wurdest aus dem Spiel entfernt!"}</div>`;
@@ -548,17 +764,14 @@
 
           updateGameUI(data, playersData);
 
-          // Handle active vote
           if (data.active_vote) {
             handleActiveVote(data);
           } else {
-            // Clear vote polling if no active vote
             if (votePollingInterval) {
               clearInterval(votePollingInterval);
               votePollingInterval = null;
             }
 
-            // Hide overlay if no active vote
             if (document.getElementById("susOverlay").style.display === "flex") {
               hideSusOverlay();
             }
@@ -592,9 +805,6 @@
     }
 
     function handleActiveVote(data) {
-      console.log("handleActiveVote called with:", data.active_vote);
-
-      // Check if overlay should be hidden
       if (data.active_vote.overlay_hidden) {
         hideSusOverlay();
         setTimeout(async () => {
@@ -607,12 +817,10 @@
         return;
       }
 
-      // Only show overlay for votes with substance
       const hasVotes = Object.keys(data.active_vote.votes || {}).length > 0;
       const hasResult = !!data.active_vote.result;
 
       if (!hasVotes && !hasResult) {
-        console.log("Vote has no substance yet, not showing overlay");
         return;
       }
 
@@ -621,14 +829,11 @@
       const initiatorName = data.active_vote.initiator_name || "Unbekannt";
       const suspectName = data.active_vote.suspect_name || "Unbekannt";
 
-      // Show overlay if not already shown
       if (document.getElementById("susOverlay").style.display !== "flex") {
-        console.log("Showing SUS overlay");
         const hasVoted = data.active_vote.votes && data.active_vote.votes[playerId];
         showSusOverlay(initiatorName, suspectName, isPlayerSuspect, hasVoted);
       }
 
-      // Start vote polling if not already active
       if (!votePollingInterval) {
         votePollingInterval = setInterval(async () => {
           try {
@@ -654,7 +859,6 @@
       const upVotes = voteData.votes.up || 0;
       const downVotes = voteData.votes.down || 0;
 
-      // Update vote count
       let countElement = document.querySelector(".vote-count");
       if (!countElement) {
         countElement = document.createElement("div");
@@ -663,13 +867,11 @@
       }
       countElement.innerHTML = `Stand der Abstimmung: 👍 ${upVotes} vs 👎 ${downVotes}`;
 
-      // Update votes count text
       const votesCountElem = document.getElementById("votesCount");
       if (votesCountElem) {
         votesCountElem.textContent = `${voteData.votes_cast}/${voteData.votes_needed}`;
       }
 
-      // Update voter list
       const voterList = document.getElementById("voterList");
       if (voterList) {
         voterList.innerHTML = "";
@@ -686,10 +888,7 @@
         });
       }
 
-      // Handle vote result
       if (voteData.result) {
-        console.log("Vote result detected:", voteData.result);
-
         document.getElementById("voteResult").classList.remove("hidden");
         document.querySelector(".vote-btns").style.display = "none";
         document.getElementById("voteTimer").classList.add("hidden");
@@ -698,13 +897,11 @@
         document.getElementById("voteResult").innerHTML =
           `${resultText} (👍 ${upVotes} vs 👎 ${downVotes})`;
 
-        // Show notification for important results
         if (["impostor_eliminated", "impostor_wins", "player_eliminated"].includes(voteData.result)) {
           showVoteResultNotification(voteData.result);
         }
       }
 
-      // Handle overlay hidden
       if (voteData.overlay_hidden) {
         hideSusOverlay();
         setTimeout(async () => {
@@ -717,6 +914,11 @@
       }
     }
 
+    function showVoteResultNotification(result) {
+      let message = "";
+      let type = "success";
+
+      switch (result) {
     function showVoteResultNotification(result) {
       let message = "";
       let type = "success";
@@ -752,7 +954,7 @@
       }
 
       if (message) {
-        showGameNotification(message, type);
+        showToast(message, type, type === 'success' ? '🏆' : type === 'danger' ? '💀' : '⚠️');
       }
     }
 
@@ -769,16 +971,16 @@
         if (impostorWon) {
           if (data.end_reason === "word_guessed") {
             message = "Du hast das Wort erraten und gewonnen!";
-            showGameNotification("GEWONNEN! Du hast das geheime Wort erraten!", "success");
+            showToast("GEWONNEN! Du hast das geheime Wort erraten!", "success", "🏆");
           } else {
             message = "Du hast gewonnen! Die Spieler konnten dich nicht finden.";
-            showGameNotification("GEWONNEN! Du hast alle anderen überlebt!", "success");
+            showToast("GEWONNEN! Du hast alle anderen überlebt!", "success", "🏆");
           }
           emoji = "🏆";
           colorClass = "success";
         } else {
           message = "Game Over! Du wurdest entlarvt.";
-          showGameNotification("VERLOREN! Du wurdest als Impostor entlarvt!", "danger");
+          showToast("VERLOREN! Du wurdest als Impostor entlarvt!", "danger", "💀");
           emoji = "🚫";
           colorClass = "danger";
         }
@@ -786,22 +988,21 @@
         if (impostorWon) {
           if (data.end_reason === "word_guessed") {
             message = "Game Over! Der Impostor hat das Wort erraten.";
-            showGameNotification("VERLOREN! Der Impostor hat das Wort erraten!", "danger");
+            showToast("VERLOREN! Der Impostor hat das Wort erraten!", "danger", "💀");
           } else {
             message = "Game Over! Der Impostor hat gewonnen.";
-            showGameNotification("VERLOREN! Der Impostor hat überlebt!", "danger");
+            showToast("VERLOREN! Der Impostor hat überlebt!", "danger", "💀");
           }
           emoji = "💀";
           colorClass = "danger";
         } else {
           message = "Gratulation! Ihr habt den Impostor gefunden und das Spiel gewonnen!";
-          showGameNotification("GEWONNEN! Der Impostor wurde enttarnt!", "success");
+          showToast("GEWONNEN! Der Impostor wurde enttarnt!", "success", "🏆");
           emoji = "🏆";
           colorClass = "success";
         }
       }
 
-      // Zeige Game Over Screen mit Countdown
       document.getElementById("gameSection").innerHTML = `
         <div class="game-over ${colorClass}">
           <h2>${emoji} Spiel beendet ${emoji}</h2>
@@ -811,7 +1012,6 @@
         </div>
       `;
 
-      // Nach 5 Sekunden zur game_ended.html weiterleiten
       let countdown = 5;
       const countdownInterval = setInterval(() => {
         countdown--;
@@ -828,7 +1028,6 @@
     }
 
     function redirectToGameEnded(gameData) {
-      // Baue die URL mit allen notwendigen Parametern
       const params = new URLSearchParams({
         game_id: gameId,
         player_id: playerId,
@@ -838,7 +1037,6 @@
         is_impostor: (gameData.your_role === "impostor").toString()
       });
 
-      // Weiterleitung zur game_ended Seite
       window.location.href = `/game_ended?${params.toString()}`;
     }
 
@@ -874,7 +1072,6 @@
         document.getElementById("susAction").innerHTML = "";
       }
 
-      // Update history
       const historyContainer = document.getElementById("historyList");
       historyContainer.innerHTML = "";
 
@@ -897,7 +1094,6 @@
       });
     }
 
-    // Function to retry clearing vote
     async function clearVoteWithRetry(maxRetries = 3) {
       let attempts = 0;
 
@@ -960,9 +1156,7 @@
       if (!word) return;
 
       const btn = document.getElementById("submitBtn");
-      const originalText = btn.innerHTML;
-      btn.innerHTML = "Wird gesendet... <span class='loading'></span>";
-      btn.disabled = true;
+      setButtonLoading(btn, true);
 
       try {
         const res = await fetch(`/submit_word`, {
@@ -981,9 +1175,8 @@
 
         const data = await res.json();
 
-        // Check if impostor guessed the word
         if (data.status === "game_over" && data.winner === "impostor") {
-          showGameNotification("GEWONNEN! Du hast das geheime Wort erraten!", "success");
+          showToast("GEWONNEN! Du hast das geheime Wort erraten!", "success", "🏆");
         }
 
         document.getElementById("hint").value = "";
@@ -991,12 +1184,9 @@
         await monitorGame();
       } catch (err) {
         console.error("Fehler beim Senden des Wortes:", err);
-        const errorMsg = document.getElementById("errorMessage");
-        errorMsg.innerText = `Fehler beim Senden: ${err.message}`;
-        errorMsg.classList.remove("hidden");
+        showToast(`Fehler beim Senden: ${err.message}`, "danger", "❌");
       } finally {
-        btn.innerHTML = originalText;
-        updateSubmitButton();
+        setButtonLoading(btn, false);
       }
     }
 
@@ -1013,7 +1203,7 @@
       );
 
       const container = document.getElementById("susAction");
-      container.innerHTML = "<label>🕵️ Verdächtigen:</label><br>";
+      container.innerHTML = "<label>🕵️ Verdächtigen:</label>";
 
       if (suspects.length === 0) {
         container.innerHTML += "<p>Keine weiteren Spieler verfügbar!</p>";
@@ -1035,10 +1225,7 @@
       isVoting = true;
 
       const targetButton = event.target;
-      const originalText = targetButton.textContent;
-
-      targetButton.textContent = `SUS wird gestartet...`;
-      targetButton.disabled = true;
+      setButtonLoading(targetButton, true);
 
       try {
         updateConnectionStatus("polling");
@@ -1068,16 +1255,12 @@
         } else {
           throw new Error(data.error || "Unbekannter Fehler");
         }
-
-        targetButton.textContent = originalText;
-        targetButton.disabled = false;
       } catch (err) {
         console.error("Fehler beim Starten des Votes:", err);
-        alert(`Fehler beim Starten des Votes: ${err.message}`);
-        targetButton.textContent = originalText;
-        targetButton.disabled = false;
+        showToast(`Fehler beim Starten des Votes: ${err.message}`, "danger", "❌");
         updateConnectionStatus("error");
       } finally {
+        setButtonLoading(targetButton, false);
         isVoting = false;
       }
     }
@@ -1104,7 +1287,6 @@
         document.getElementById("voteDownBtn").disabled = false;
       }
 
-      // Show vote timer
       const timerElem = document.getElementById("voteTimer");
       timerElem.classList.remove("hidden");
 
@@ -1148,18 +1330,16 @@
 
     async function castVote(vote) {
       if (currentSuspectId === playerId) {
-        alert("Du kannst nicht über dich selbst abstimmen!");
+        showToast("Du kannst nicht über dich selbst abstimmen!", "warning", "⚠️");
         return;
       }
 
       const upBtn = document.getElementById("voteUpBtn");
       const downBtn = document.getElementById("voteDownBtn");
-      upBtn.disabled = true;
-      downBtn.disabled = true;
-
       const clickedBtn = vote === 'up' ? upBtn : downBtn;
-      const originalHTML = clickedBtn.innerHTML;
-      clickedBtn.innerHTML = `<span class='loading'></span>`;
+
+      setButtonLoading(upBtn, true);
+      setButtonLoading(downBtn, true);
 
       try {
         updateConnectionStatus("polling");
@@ -1202,7 +1382,6 @@
           document.getElementById("voteResult").innerHTML =
             `${resultText} (👍 ${data.up_votes} vs 👎 ${data.down_votes})`;
 
-          // Show notification for important results
           if (["impostor_eliminated", "impostor_wins", "player_eliminated"].includes(data.result)) {
             showVoteResultNotification(data.result);
           }
@@ -1214,26 +1393,11 @@
         updateConnectionStatus("connected");
       } catch (err) {
         console.error("Fehler beim Abstimmen:", err);
-        clickedBtn.innerHTML = originalHTML;
-        upBtn.disabled = false;
-        downBtn.disabled = false;
-        alert(`Fehler beim Abstimmen: ${err.message}`);
+        showToast(`Fehler beim Abstimmen: ${err.message}`, "danger", "❌");
         updateConnectionStatus("error");
+        setButtonLoading(upBtn, false);
+        setButtonLoading(downBtn, false);
       }
-    }
-
-    function showGameNotification(message, type = "success") {
-      const notification = document.getElementById("gameNotification");
-      const textElem = document.getElementById("notificationText");
-
-      textElem.textContent = message;
-      notification.className = `game-notification ${type}`;
-      notification.classList.remove("hidden");
-
-      // Auto-hide after 4 seconds
-      setTimeout(() => {
-        notification.classList.add("hidden");
-      }, 4000);
     }
 
     function getVoteResultText(result) {
@@ -1246,7 +1410,6 @@
       }
     }
 
-    // Event-Listener für die Seite
     window.addEventListener("beforeunload", () => {
       if (gamePollingInterval) clearInterval(gamePollingInterval);
       if (votePollingInterval) clearInterval(votePollingInterval);
