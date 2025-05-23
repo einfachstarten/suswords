@@ -215,58 +215,34 @@
       box-shadow: 0 0 20px var(--accent);
     }
 
-    /* Game outcome animation */
-    .outcome-animation {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      background: rgba(0,0,0,0.85);
-      z-index: 9999;
-      animation: fadeOutAnimation 4s forwards;
-      animation-delay: 3s;
-    }
-
-    .outcome-text {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 3em;
-      text-align: center;
-      margin-bottom: 40px;
-      animation: pulseAnimation 2s infinite;
-    }
-
-    .outcome-win {
-      color: var(--success);
-      text-shadow: 0 0 10px var(--success);
-    }
-
-    .outcome-lose {
+    .status-error {
       color: var(--danger);
-      text-shadow: 0 0 10px var(--danger);
     }
 
-    .outcome-neutral {
+    /* Connection status */
+    .connection-status {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 0.8em;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .status-connected {
+      color: var(--success);
+    }
+
+    .status-polling {
       color: var(--accent);
-      text-shadow: 0 0 10px var(--accent);
     }
 
-    @keyframes pulseAnimation {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.9; }
-      100% { transform: scale(1); opacity: 1; }
+    .status-error {
+      color: var(--danger);
     }
 
-    @keyframes fadeOutAnimation {
-      0% { opacity: 1; }
-      100% { opacity: 0; visibility: hidden; }
-    }
-
-    /* New styles for enhanced voting UI */
+    /* Vote status styles */
     .vote-count {
       margin: 10px 0;
       font-size: 1.2em;
@@ -320,26 +296,50 @@
       text-decoration: line-through;
     }
 
-    .connection-status {
+    /* Simple notification instead of complex overlay */
+    .game-notification {
       position: fixed;
-      bottom: 10px;
-      right: 10px;
-      padding: 5px 10px;
-      border-radius: 5px;
-      font-size: 0.8em;
-      background: rgba(0, 0, 0, 0.5);
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel);
+      color: var(--text);
+      padding: 15px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+      z-index: 10000;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2em;
+      text-align: center;
+      border: 2px solid var(--highlight);
+      animation: slideInNotification 0.5s ease-out;
+      max-width: 500px;
     }
 
-    .status-connected {
-      color: var(--success);
+    .game-notification.success {
+      border-color: var(--success);
+      box-shadow: 0 0 20px rgba(75, 220, 101, 0.5);
     }
 
-    .status-polling {
-      color: var(--accent);
+    .game-notification.danger {
+      border-color: var(--danger);
+      box-shadow: 0 0 20px rgba(255, 50, 96, 0.5);
     }
 
-    .status-error {
-      color: var(--danger);
+    .game-notification.warning {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+    }
+
+    @keyframes slideInNotification {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
     }
   </style>
 </head>
@@ -383,13 +383,13 @@
     <div id="voteResult" class="vote-result hidden"></div>
   </div>
 
-  <div id="outcomeAnimation" class="outcome-animation hidden">
-    <div id="outcomeText" class="outcome-text">Du hast gewonnen!</div>
-    <div id="outcomeDescription"></div>
-  </div>
-
   <div id="connectionStatus" class="connection-status status-connected">
     Verbunden
+  </div>
+
+  <!-- Simple notification -->
+  <div id="gameNotification" class="game-notification hidden">
+    <div id="notificationText">Benachrichtigung</div>
   </div>
 
   <script>
@@ -435,7 +435,6 @@
       gamePollingInterval = setInterval(monitorGame, 3000);
     }
 
-    // New function to handle connection status display
     function updateConnectionStatus(status) {
       const statusElem = document.getElementById("connectionStatus");
       connectionStatus = status;
@@ -493,7 +492,7 @@
     }
 
     async function monitorGame() {
-      if (isPolling) return; // Verhindert parallele Aufrufe
+      if (isPolling) return;
       isPolling = true;
       updateConnectionStatus("polling");
 
@@ -503,7 +502,7 @@
 
         const data = await res.json();
 
-        // Prüfen, ob das Spiel beendet wurde
+        // Check for game end
         if (data.game_status === "finished") {
           showGameOverScreen(data);
           clearInterval(gamePollingInterval);
@@ -512,7 +511,7 @@
           return;
         }
 
-        // Prüfen, ob Spieler eliminiert wurde
+        // Check if player is eliminated
         if (data.status === "eliminated") {
           document.getElementById("gameSection").innerHTML =
             `<div id='errorMessage'>${data.message || "Du wurdest aus dem Spiel entfernt!"}</div>`;
@@ -529,40 +528,15 @@
         lastGameState = data;
 
         try {
-          // Spielerliste holen
           const playersRes = await fetch(`/players_in_game/${gameId}`);
           if (!playersRes.ok) throw new Error(`Fehler beim Laden der Spielerliste: ${playersRes.status}`);
           const playersData = await playersRes.json();
 
-          // Update UI with game state and players
           updateGameUI(data, playersData);
 
-          // Handle active vote - with enhanced polling
+          // Handle active vote
           if (data.active_vote) {
-            // Start or continue vote-specific polling if there's an active vote
-            checkForActiveVote(data);
-
-            // Start more frequent polling during active votes if not already polling
-            if (!votePollingInterval) {
-              votePollingInterval = setInterval(async () => {
-                try {
-                  // Use dedicated vote status endpoint
-                  const voteRes = await fetch(`/vote_status/${gameId}/${playerId}`);
-                  if (!voteRes.ok) throw new Error(`Fehler beim Abrufen des Vote-Status: ${voteRes.status}`);
-
-                  const voteData = await voteRes.json();
-                  if (voteData.active) {
-                    // Update vote display with vote status
-                    updateVoteDisplay(voteData);
-                  } else if (document.getElementById("susOverlay").style.display === "flex") {
-                    // If vote is no longer active but overlay is still shown, hide it
-                    hideSusOverlay();
-                  }
-                } catch (err) {
-                  console.error("Fehler beim Abrufen des Vote-Status:", err);
-                }
-              }, 1000); // Poll every second during active votes
-            }
+            handleActiveVote(data);
           } else {
             // Clear vote polling if no active vote
             if (votePollingInterval) {
@@ -570,7 +544,7 @@
               votePollingInterval = null;
             }
 
-            // Make sure overlay is hidden if no active vote
+            // Hide overlay if no active vote
             if (document.getElementById("susOverlay").style.display === "flex") {
               hideSusOverlay();
             }
@@ -580,7 +554,6 @@
           retryAttempts = 0;
         } catch (playersErr) {
           console.error("Fehler beim Laden der Spielerliste:", playersErr);
-          // Wir aktualisieren trotzdem die UI mit den verfügbaren Daten
           updateGameUI(data, { players: [] });
           updateConnectionStatus("error");
         }
@@ -593,11 +566,10 @@
         updateConnectionStatus("error");
 
         if (retryAttempts > maxRetryAttempts) {
-          console.log(`Zu viele fehlgeschlagene Versuche (${retryAttempts}/${maxRetryAttempts}). Polling wird reduziert.`);
-          // Slow down polling when connection is problematic
+          console.log(`Zu viele fehlgeschlagene Versuche. Polling wird reduziert.`);
           if (gamePollingInterval) {
             clearInterval(gamePollingInterval);
-            gamePollingInterval = setInterval(monitorGame, 10000); // Poll every 10s instead of 3s
+            gamePollingInterval = setInterval(monitorGame, 10000);
           }
         }
       } finally {
@@ -605,26 +577,70 @@
       }
     }
 
-    // Enhanced function to update vote display
-    async function updateVoteDisplay(voteData) {
-      if (!voteData || !voteData.active) return;
+    function handleActiveVote(data) {
+      console.log("handleActiveVote called with:", data.active_vote);
 
-      const isPlayerSuspect = voteData.suspect_id === playerId;
-      currentSuspectId = voteData.suspect_id;
-      const initiatorName = voteData.initiator_name || "Unbekannt";
-      const suspectName = voteData.suspect_name || "Unbekannt";
-      const hasVoted = voteData.already_voted;
+      // Check if overlay should be hidden
+      if (data.active_vote.overlay_hidden) {
+        hideSusOverlay();
+        setTimeout(async () => {
+          try {
+            await clearVoteWithRetry();
+          } catch (err) {
+            console.error("Fehler beim Löschen des Votings:", err);
+          }
+        }, 500);
+        return;
+      }
+
+      // Only show overlay for votes with substance
+      const hasVotes = Object.keys(data.active_vote.votes || {}).length > 0;
+      const hasResult = !!data.active_vote.result;
+
+      if (!hasVotes && !hasResult) {
+        console.log("Vote has no substance yet, not showing overlay");
+        return;
+      }
+
+      const isPlayerSuspect = data.active_vote.suspect_id === playerId;
+      currentSuspectId = data.active_vote.suspect_id;
+      const initiatorName = data.active_vote.initiator_name || "Unbekannt";
+      const suspectName = data.active_vote.suspect_name || "Unbekannt";
 
       // Show overlay if not already shown
       if (document.getElementById("susOverlay").style.display !== "flex") {
+        console.log("Showing SUS overlay");
+        const hasVoted = data.active_vote.votes && data.active_vote.votes[playerId];
         showSusOverlay(initiatorName, suspectName, isPlayerSuspect, hasVoted);
       }
 
-      // Update vote counts
-      const upVotes = voteData.votes.up;
-      const downVotes = voteData.votes.down;
+      // Start vote polling if not already active
+      if (!votePollingInterval) {
+        votePollingInterval = setInterval(async () => {
+          try {
+            const voteRes = await fetch(`/vote_status/${gameId}/${playerId}`);
+            if (!voteRes.ok) throw new Error(`Vote status error: ${voteRes.status}`);
 
-      // Update or create vote count display
+            const voteData = await voteRes.json();
+            if (voteData.active) {
+              updateVoteDisplay(voteData);
+            } else if (document.getElementById("susOverlay").style.display === "flex") {
+              hideSusOverlay();
+            }
+          } catch (err) {
+            console.error("Fehler beim Vote-Status:", err);
+          }
+        }, 1000);
+      }
+    }
+
+    function updateVoteDisplay(voteData) {
+      if (!voteData || !voteData.active) return;
+
+      const upVotes = voteData.votes.up || 0;
+      const downVotes = voteData.votes.down || 0;
+
+      // Update vote count
       let countElement = document.querySelector(".vote-count");
       if (!countElement) {
         countElement = document.createElement("div");
@@ -634,19 +650,19 @@
       countElement.innerHTML = `Stand der Abstimmung: 👍 ${upVotes} vs 👎 ${downVotes}`;
 
       // Update votes count text
-      document.getElementById("votesCount").textContent = `${voteData.votes_cast}/${voteData.votes_needed}`;
+      const votesCountElem = document.getElementById("votesCount");
+      if (votesCountElem) {
+        votesCountElem.textContent = `${voteData.votes_cast}/${voteData.votes_needed}`;
+      }
 
       // Update voter list
       const voterList = document.getElementById("voterList");
       if (voterList) {
         voterList.innerHTML = "";
-
-        // Get all voters and their status
         const voters = voteData.voters || {};
 
         document.getElementById("voteSummary").classList.remove("hidden");
 
-        // List voters who have voted
         Object.entries(voters).forEach(([voterId, voterInfo]) => {
           const li = document.createElement("li");
           const voteEmoji = voterInfo.vote === "up" ? "👍" : "👎";
@@ -656,69 +672,25 @@
         });
       }
 
-      // If vote is complete, update result
+      // Handle vote result
       if (voteData.result) {
-        // Show the result
+        console.log("Vote result detected:", voteData.result);
+
         document.getElementById("voteResult").classList.remove("hidden");
         document.querySelector(".vote-btns").style.display = "none";
-
-        // Hide timer
         document.getElementById("voteTimer").classList.add("hidden");
 
-        // Set appropriate result text based on result type
-        let resultText = "";
-        switch (voteData.result) {
-          case "impostor_eliminated":
-            resultText = "Der Impostor wurde entfernt! Spiel vorbei!";
-
-            // Show outcome animation for game end
-            if (isImpostor) {
-              showOutcomeAnimation("VERLOREN!", "Du wurdest als Impostor entlarvt!", "lose");
-            } else {
-              showOutcomeAnimation("GEWONNEN!", "Ihr habt den Impostor gefunden!", "win");
-            }
-            break;
-
-          case "impostor_wins":
-            resultText = "Der Impostor hat gewonnen!";
-
-            // Show outcome animation for game end
-            if (isImpostor) {
-              showOutcomeAnimation("GEWONNEN!", "Du hast als Impostor überlebt!", "win");
-            } else {
-              showOutcomeAnimation("VERLOREN!", "Der Impostor hat überlebt!", "lose");
-            }
-            break;
-
-          case "player_eliminated":
-            // Check if player is impostor to show correct message
-            if (voteData.is_player_impostor) {
-              resultText = "Ein unschuldiger Spieler wurde entfernt!";
-
-              // Show success message for impostor
-              if (isImpostor) {
-                showOutcomeAnimation("ERFOLG!", "Ein unschuldiger Spieler wurde entfernt!", "win");
-              } else {
-                showOutcomeAnimation("OH NEIN!", "Ein unschuldiger Spieler wurde entfernt!", "neutral");
-              }
-            } else {
-              resultText = "Spieler wurde entfernt!";
-            }
-            break;
-
-          case "vote_failed":
-            resultText = "Spieler bleibt im Spiel!";
-            break;
-
-          default:
-            resultText = "Abstimmung abgeschlossen!";
-        }
-
+        const resultText = getVoteResultText(voteData.result);
         document.getElementById("voteResult").innerHTML =
           `${resultText} (👍 ${upVotes} vs 👎 ${downVotes})`;
+
+        // Show notification for important results
+        if (["impostor_eliminated", "impostor_wins", "player_eliminated"].includes(voteData.result)) {
+          showVoteResultNotification(voteData.result);
+        }
       }
 
-      // Handle overlay hidden flag
+      // Handle overlay hidden
       if (voteData.overlay_hidden) {
         hideSusOverlay();
         setTimeout(async () => {
@@ -731,34 +703,43 @@
       }
     }
 
-    // Function to show outcome animation
-    function showOutcomeAnimation(text, description, type) {
-      const animation = document.getElementById("outcomeAnimation");
-      const textElem = document.getElementById("outcomeText");
-      const descElem = document.getElementById("outcomeDescription");
+    function showVoteResultNotification(result) {
+      let message = "";
+      let type = "success";
 
-      animation.classList.remove("hidden");
-      textElem.textContent = text;
-      descElem.textContent = description;
-
-      // Set appropriate class for styling
-      textElem.className = "outcome-text";
-      switch (type) {
-        case "win":
-          textElem.classList.add("outcome-win");
+      switch (result) {
+        case "impostor_eliminated":
+          if (isImpostor) {
+            message = "VERLOREN! Du wurdest als Impostor entlarvt!";
+            type = "danger";
+          } else {
+            message = "GEWONNEN! Ihr habt den Impostor gefunden!";
+            type = "success";
+          }
           break;
-        case "lose":
-          textElem.classList.add("outcome-lose");
+        case "impostor_wins":
+          if (isImpostor) {
+            message = "GEWONNEN! Du hast als Impostor überlebt!";
+            type = "success";
+          } else {
+            message = "VERLOREN! Der Impostor hat überlebt!";
+            type = "danger";
+          }
           break;
-        case "neutral":
-          textElem.classList.add("outcome-neutral");
+        case "player_eliminated":
+          if (isImpostor) {
+            message = "ERFOLG! Ein unschuldiger Spieler wurde entfernt!";
+            type = "success";
+          } else {
+            message = "OH NEIN! Ein unschuldiger Spieler wurde entfernt!";
+            type = "warning";
+          }
           break;
       }
 
-      // Automatically hide after animation completes
-      setTimeout(() => {
-        animation.classList.add("hidden");
-      }, 7000);
+      if (message) {
+        showGameNotification(message, type);
+      }
     }
 
     function showGameOverScreen(data) {
@@ -769,56 +750,41 @@
       let message = "";
       let emoji = "";
       let colorClass = "";
-      let animationType = "";
-      let animationMessage = "";
 
       if (isImpostor) {
-        // Impostor Ende
         if (impostorWon) {
           if (data.end_reason === "word_guessed") {
             message = "Du hast das Wort erraten und gewonnen!";
-            animationMessage = "Du hast das geheime Wort erraten!";
+            showGameNotification("GEWONNEN! Du hast das geheime Wort erraten!", "success");
           } else {
             message = "Du hast gewonnen! Die Spieler konnten dich nicht finden.";
-            animationMessage = "Du hast alle anderen überlebt!";
+            showGameNotification("GEWONNEN! Du hast alle anderen überlebt!", "success");
           }
           emoji = "🏆";
           colorClass = "success";
-          animationType = "win";
         } else {
           message = "Game Over! Du wurdest entlarvt.";
-          animationMessage = "Du wurdest als Impostor entlarvt!";
+          showGameNotification("VERLOREN! Du wurdest als Impostor entlarvt!", "danger");
           emoji = "🚫";
           colorClass = "danger";
-          animationType = "lose";
         }
       } else {
-        // Normaler Spieler Ende
         if (impostorWon) {
           if (data.end_reason === "word_guessed") {
             message = "Game Over! Der Impostor hat das Wort erraten.";
-            animationMessage = "Der Impostor hat das Wort erraten!";
+            showGameNotification("VERLOREN! Der Impostor hat das Wort erraten!", "danger");
           } else {
             message = "Game Over! Der Impostor hat gewonnen.";
-            animationMessage = "Der Impostor hat überlebt!";
+            showGameNotification("VERLOREN! Der Impostor hat überlebt!", "danger");
           }
           emoji = "💀";
           colorClass = "danger";
-          animationType = "lose";
         } else {
           message = "Gratulation! Ihr habt den Impostor gefunden und das Spiel gewonnen!";
-          animationMessage = "Der Impostor wurde enttarnt!";
+          showGameNotification("GEWONNEN! Der Impostor wurde enttarnt!", "success");
           emoji = "🏆";
           colorClass = "success";
-          animationType = "win";
         }
-      }
-
-      // Show animated outcome
-      if (animationType === "win") {
-        showOutcomeAnimation("GEWONNEN!", animationMessage, animationType);
-      } else {
-        showOutcomeAnimation("VERLOREN!", animationMessage, animationType);
       }
 
       document.getElementById("gameSection").innerHTML = `
@@ -826,7 +792,6 @@
           <h2>${emoji} Spiel beendet ${emoji}</h2>
           <p>${message}</p>
           <p>Das geheime Wort war: <strong>${secretWord}</strong></p>
-          <button onclick="location.reload()">Neu starten</button>
         </div>
       `;
     }
@@ -847,7 +812,6 @@
       const btn = document.getElementById("submitBtn");
       document.getElementById("wordSection").classList.toggle("hidden", !isMyTurn);
 
-      // Spielerliste für History-Einträge
       const playerMap = {};
       if (playersData && playersData.players) {
         playersData.players.forEach(p => playerMap[p.player_id] = p.name);
@@ -864,20 +828,15 @@
         document.getElementById("susAction").innerHTML = "";
       }
 
-      // History aktualisieren mit verbesserten Anzeigen für eliminierte Spieler
+      // Update history
       const historyContainer = document.getElementById("historyList");
-      historyContainer.innerHTML = ""; // Clear existing entries
+      historyContainer.innerHTML = "";
 
-      // Get eliminated players list
       const eliminatedPlayers = data.eliminated_players || [];
 
       data.history.forEach(entry => {
         const li = document.createElement("li");
-
-        // Find player name
         const playerName = playerMap[entry.player_id] || entry.player_id;
-
-        // Check if player is eliminated
         const isEliminated = eliminatedPlayers.includes(entry.player_id) ||
             playersData?.players?.find(p => p.player_id === entry.player_id)?.eliminated;
 
@@ -890,113 +849,6 @@
 
         historyContainer.appendChild(li);
       });
-    }
-
-    function checkForActiveVote(data) {
-      if (!data.active_vote) {
-        // Wenn kein aktives Vote mehr, aber das Overlay ist noch offen
-        if (document.getElementById("susOverlay").style.display === "flex" &&
-            document.getElementById("voteResult").classList.contains("hidden")) {
-          hideSusOverlay();
-        }
-        return;
-      }
-
-      // Prüfen, ob das Overlay für alle ausgeblendet werden soll
-      if (data.active_vote.overlay_hidden) {
-        hideSusOverlay();
-        // Nach kurzer Verzögerung das Vote komplett löschen
-        setTimeout(async () => {
-          try {
-            await clearVoteWithRetry();
-          } catch (err) {
-            console.error("Fehler beim Löschen des Votings:", err);
-          }
-        }, 500);
-        return;
-      }
-
-      const isPlayerSuspect = data.active_vote.suspect_id === playerId;
-      currentSuspectId = data.active_vote.suspect_id;
-
-      // Die Namen kommen jetzt direkt vom Server
-      const initiatorName = data.active_vote.initiator_name || "Unbekannt";
-      const suspectName = data.active_vote.suspect_name || "Unbekannt";
-
-      // Wenn wir das Overlay noch nicht anzeigen oder wenn es ein neues Vote ist
-      if (document.getElementById("susOverlay").style.display !== "flex" ||
-          document.getElementById("susText").innerText !== `${initiatorName} SUSST ${suspectName}`) {
-
-        // Prüfen ob Spieler bereits abgestimmt hat
-        const hasVoted = data.active_vote.votes && data.active_vote.votes[playerId];
-
-        showSusOverlay(initiatorName, suspectName, isPlayerSuspect, hasVoted);
-      }
-
-      // Vote-Ergebnisse prüfen, falls sich etwas geändert hat
-      updateVoteResults(data.active_vote);
-    }
-
-    function updateVoteResults(voteData) {
-      if (!voteData || !voteData.votes) return;
-
-      const votes = voteData.votes;
-      let upVotes = 0;
-      let downVotes = 0;
-
-      // Stimmen zählen
-      Object.values(votes).forEach(vote => {
-        if (vote === 'up') upVotes++;
-        else if (vote === 'down') downVotes++;
-      });
-
-      // Update vote count display
-      let countElement = document.querySelector(".vote-count");
-      if (!countElement) {
-        countElement = document.createElement("div");
-        countElement.classList.add("vote-count");
-        document.getElementById("voteResult").insertAdjacentElement('beforebegin', countElement);
-      }
-      countElement.innerHTML = `Stand der Abstimmung: 👍 ${upVotes} vs 👎 ${downVotes}`;
-
-      // Wenn Abstimmung bereits abgeschlossen ist
-      if (voteData.result) {
-        document.getElementById("voteResult").classList.remove("hidden");
-        document.querySelector(".vote-btns").style.display = "none";
-
-        // Hide timer
-        document.getElementById("voteTimer").classList.add("hidden");
-
-        let resultText = "";
-        switch (voteData.result) {
-          case "impostor_eliminated":
-            resultText = "Der Impostor wurde entfernt! Spiel vorbei!";
-            break;
-          case "impostor_wins":
-            resultText = "Der Impostor hat gewonnen!";
-            break;
-          case "player_eliminated":
-            resultText = "Spieler wurde entfernt!";
-            break;
-          case "vote_failed":
-            resultText = "Spieler bleibt im Spiel!";
-            break;
-          default:
-            resultText = "Abstimmung abgeschlossen!";
-        }
-
-        document.getElementById("voteResult").innerHTML = resultText;
-
-        // Overlay nach kurzer Verzögerung ausblenden, wenn das Ergebnis da ist
-        setTimeout(async () => {
-          // Vote auf dem Server markieren, dass das Overlay bei allen ausgeblendet werden soll
-          try {
-            await endVoteWithRetry();
-          } catch (err) {
-            console.error("Fehler beim Beenden des Votings:", err);
-          }
-        }, 3000);
-      }
     }
 
     // Function to retry clearing vote
@@ -1014,48 +866,16 @@
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
           console.log("Vote successfully cleared");
-          await monitorGame(); // Refresh game state
+          await monitorGame();
           return;
         } catch (err) {
           console.error(`Failed to clear vote (attempt ${attempts + 1}/${maxRetries}):`, err);
           attempts++;
 
           if (attempts < maxRetries) {
-            // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
           } else {
-            throw err; // Rethrow if all attempts failed
-          }
-        }
-      }
-    }
-
-    // Function to retry ending vote
-    async function endVoteWithRetry(maxRetries = 3) {
-      let attempts = 0;
-
-      while (attempts < maxRetries) {
-        try {
-          const res = await fetch("/end_vote", {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: gameId })
-          });
-
-          if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
-          console.log("Vote ending marked");
-          await monitorGame(); // Refresh game state
-          return;
-        } catch (err) {
-          console.error(`Failed to end vote (attempt ${attempts + 1}/${maxRetries}):`, err);
-          attempts++;
-
-          if (attempts < maxRetries) {
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-          } else {
-            throw err; // Rethrow if all attempts failed
+            throw err;
           }
         }
       }
@@ -1113,6 +933,13 @@
           throw new Error(`Server-Fehler: ${res.status}`);
         }
 
+        const data = await res.json();
+
+        // Check if impostor guessed the word
+        if (data.status === "game_over" && data.winner === "impostor") {
+          showGameNotification("GEWONNEN! Du hast das geheime Wort erraten!", "success");
+        }
+
         document.getElementById("hint").value = "";
         document.getElementById("charCount").textContent = "0";
         await monitorGame();
@@ -1133,7 +960,6 @@
         return;
       }
 
-      // Nur aktive Spieler anzeigen (nicht eliminierte)
       const suspects = players.filter(p =>
         p.player_id !== playerId &&
         !p.eliminated &&
@@ -1159,93 +985,65 @@
     }
 
     async function startVote(suspectId, suspectName) {
-      if (isVoting) return; // Verhindert mehrfache Votes
+      if (isVoting) return;
       isVoting = true;
 
-      let retryCount = 0;
-      const maxRetries = 3;
       const targetButton = event.target;
       const originalText = targetButton.textContent;
 
       targetButton.textContent = `SUS wird gestartet...`;
       targetButton.disabled = true;
 
-      async function attemptStartVote() {
-        try {
-          updateConnectionStatus("polling");
-          const res = await fetch("/start_vote", {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              game_id: gameId,
-              initiator_id: playerId,
-              suspect_id: suspectId
-            })
-          });
+      try {
+        updateConnectionStatus("polling");
+        const res = await fetch("/start_vote", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            initiator_id: playerId,
+            suspect_id: suspectId
+          })
+        });
 
-          if (!res.ok) {
-            throw new Error(`Server-Fehler: ${res.status}`);
-          }
-
-          const data = await res.json();
-          if (data.status === "vote_started") {
-            // Wir verwenden die Namen aus der Serverantwort
-            currentSuspectId = suspectId;
-            const initiatorName = data.initiator_name || playerName;
-            const suspectName = data.suspect_name || "Unbekannt";
-
-            console.log("Vote gestartet:", {
-              initiatorName,
-              suspectName
-            });
-
-            showSusOverlay(initiatorName, suspectName, false, false);
-            updateConnectionStatus("connected");
-          } else {
-            throw new Error(data.error || "Unbekannter Fehler");
-          }
-
-          // Button zurücksetzen
-          targetButton.textContent = originalText;
-          targetButton.disabled = false;
-        } catch (err) {
-          console.error(`Fehler beim Starten des Votes (Versuch ${retryCount + 1}/${maxRetries}):`, err);
-
-          if (retryCount < maxRetries) {
-            retryCount++;
-            targetButton.textContent = `Erneuter Versuch (${retryCount})...`;
-            updateConnectionStatus("error");
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await attemptStartVote();
-          } else {
-            console.error("Failed to start vote after retries");
-            alert(`Fehler beim Starten des Votes: ${err.message}`);
-            targetButton.textContent = originalText;
-            targetButton.disabled = false;
-            updateConnectionStatus("error");
-          }
+        if (!res.ok) {
+          throw new Error(`Server-Fehler: ${res.status}`);
         }
-      }
 
-      await attemptStartVote();
-      isVoting = false;
+        const data = await res.json();
+        if (data.status === "vote_started") {
+          currentSuspectId = suspectId;
+          const initiatorName = data.initiator_name || playerName;
+          const suspectName = data.suspect_name || "Unbekannt";
+
+          console.log("Vote gestartet:", { initiatorName, suspectName });
+          showSusOverlay(initiatorName, suspectName, false, false);
+          updateConnectionStatus("connected");
+        } else {
+          throw new Error(data.error || "Unbekannter Fehler");
+        }
+
+        targetButton.textContent = originalText;
+        targetButton.disabled = false;
+      } catch (err) {
+        console.error("Fehler beim Starten des Votes:", err);
+        alert(`Fehler beim Starten des Votes: ${err.message}`);
+        targetButton.textContent = originalText;
+        targetButton.disabled = false;
+        updateConnectionStatus("error");
+      } finally {
+        isVoting = false;
+      }
     }
 
     function showSusOverlay(from, to, isPlayerSuspect, hasVoted) {
-      console.log("[SUS] Overlay anzeigen:", from, "susst", to, "isPlayerSuspect:", isPlayerSuspect, "hasVoted:", hasVoted);
+      console.log("[SUS] Overlay anzeigen:", from, "susst", to);
 
-      // Text im Overlay setzen
       document.getElementById("susText").innerText = `${from} SUSST ${to}`;
       document.getElementById("susOverlay").style.display = "flex";
-
-      // Vorbereitung für die Vote-Anzeige
       document.getElementById("voteResult").classList.add("hidden");
-
-      // Das X zum Schließen anzeigen/verstecken
       document.getElementById("closeVote").classList.toggle("hidden", isPlayerSuspect);
 
-      // Vote-Buttons nur anzeigen, wenn der Spieler nicht der Verdächtige ist und noch nicht abgestimmt hat
       if (isPlayerSuspect) {
         document.querySelector(".vote-btns").style.display = "none";
         document.getElementById("voteResult").classList.remove("hidden");
@@ -1264,7 +1062,6 @@
       const timerElem = document.getElementById("voteTimer");
       timerElem.classList.remove("hidden");
 
-      // Start countdown timer (15 seconds)
       let secondsLeft = 15;
       const countdown = setInterval(() => {
         secondsLeft--;
@@ -1275,7 +1072,6 @@
         } else {
           timerElem.innerHTML = `Zeit zum Abstimmen: ${secondsLeft}s`;
 
-          // Visual urgency
           if (secondsLeft <= 5) {
             timerElem.style.color = "red";
             timerElem.style.fontWeight = "bold";
@@ -1283,10 +1079,8 @@
         }
       }, 1000);
 
-      // Store timer reference to clear it if needed
       window.voteTimer = countdown;
 
-      // Initialize empty voter list
       document.getElementById("voteSummary").classList.remove("hidden");
       document.getElementById("voterList").innerHTML = "";
     }
@@ -1298,7 +1092,6 @@
       document.getElementById("voteTimer").classList.add("hidden");
       currentSuspectId = null;
 
-      // Clear timer if exists
       if (window.voteTimer) {
         clearInterval(window.voteTimer);
         window.voteTimer = null;
@@ -1308,7 +1101,6 @@
     document.getElementById("closeVote").addEventListener("click", hideSusOverlay);
 
     async function castVote(vote) {
-      // Prüfen ob der Spieler der Verdächtigte ist
       if (currentSuspectId === playerId) {
         alert("Du kannst nicht über dich selbst abstimmen!");
         return;
@@ -1323,103 +1115,79 @@
       const originalHTML = clickedBtn.innerHTML;
       clickedBtn.innerHTML = `<span class='loading'></span>`;
 
-      let retryCount = 0;
-      const maxRetries = 3;
+      try {
+        updateConnectionStatus("polling");
+        const res = await fetch("/cast_vote", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            game_id: gameId,
+            voter_id: playerId,
+            vote
+          })
+        });
 
-      async function attemptCastVote() {
-        try {
-          updateConnectionStatus("polling");
-          const res = await fetch("/cast_vote", {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              game_id: gameId,
-              voter_id: playerId,
-              vote
-            })
-          });
+        if (!res.ok) {
+          throw new Error(`Server-Fehler: ${res.status}`);
+        }
 
-          if (!res.ok) {
-            throw new Error(`Server-Fehler: ${res.status}`);
+        const data = await res.json();
+
+        document.querySelector(".vote-btns").style.display = "none";
+        document.getElementById("voteResult").classList.remove("hidden");
+
+        if (data.up_votes !== undefined && data.down_votes !== undefined) {
+          let countElement = document.querySelector(".vote-count");
+          if (!countElement) {
+            countElement = document.createElement("div");
+            countElement.classList.add("vote-count");
+            document.getElementById("voteResult").insertAdjacentElement('beforebegin', countElement);
           }
+          countElement.innerHTML = `Stand der Abstimmung: 👍 ${data.up_votes} vs 👎 ${data.down_votes}`;
 
-          const data = await res.json();
-
-          // Update UI with vote information
-          document.querySelector(".vote-btns").style.display = "none";
-          document.getElementById("voteResult").classList.remove("hidden");
-
-          // Update vote count information immediately, even if not all have voted
-          if (data.up_votes !== undefined && data.down_votes !== undefined) {
-            let countElement = document.querySelector(".vote-count");
-            if (!countElement) {
-              countElement = document.createElement("div");
-              countElement.classList.add("vote-count");
-              document.getElementById("voteResult").insertAdjacentElement('beforebegin', countElement);
-            }
-            countElement.innerHTML = `Stand der Abstimmung: 👍 ${data.up_votes} vs 👎 ${data.down_votes}`;
-
-            // Update votes count text
-            document.getElementById("votesCount").textContent = `${data.total_votes}/${data.total_possible_votes}`;
-          }
-
-          // Wenn die Abstimmung abgeschlossen ist
-          if (data.status === "vote_completed") {
-            let resultText = getVoteResultText(data.result);
-            document.getElementById("voteResult").innerHTML =
-              `${resultText} (👍 ${data.up_votes} vs 👎 ${data.down_votes})`;
-
-            // Show outcome animation based on result
-            if (data.result === "impostor_eliminated") {
-              if (isImpostor) {
-                showOutcomeAnimation("VERLOREN!", "Du wurdest als Impostor entlarvt!", "lose");
-              } else {
-                showOutcomeAnimation("GEWONNEN!", "Ihr habt den Impostor gefunden!", "win");
-              }
-            } else if (data.result === "impostor_wins") {
-              if (isImpostor) {
-                showOutcomeAnimation("GEWONNEN!", "Du hast als Impostor überlebt!", "win");
-              } else {
-                showOutcomeAnimation("VERLOREN!", "Der Impostor hat überlebt!", "lose");
-              }
-            } else if (data.result === "player_eliminated") {
-              // Show outcome based on player role
-              if (isImpostor) {
-                showOutcomeAnimation("ERFOLG!", "Ein unschuldiger Spieler wurde entfernt!", "win");
-              } else {
-                showOutcomeAnimation("OH NEIN!", "Ein unschuldiger Spieler wurde entfernt!", "neutral");
-              }
-            }
-          } else {
-            document.getElementById("voteResult").innerHTML = "Danke für dein Vote!";
-          }
-
-          // Spielstatus aktualisieren
-          await monitorGame();
-          updateConnectionStatus("connected");
-        } catch (err) {
-          console.error(`Fehler beim Abstimmen (Versuch ${retryCount + 1}/${maxRetries}):`, err);
-
-          if (retryCount < maxRetries) {
-            retryCount++;
-            // Show retry attempt
-            clickedBtn.innerHTML = `Erneuter Versuch (${retryCount})...`;
-            updateConnectionStatus("error");
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await attemptCastVote();
-          } else {
-            console.error("Failed to cast vote after retries");
-            clickedBtn.innerHTML = originalHTML;
-            upBtn.disabled = false;
-            downBtn.disabled = false;
-            alert(`Fehler beim Abstimmen: ${err.message}`);
-            updateConnectionStatus("error");
+          const votesCountElem = document.getElementById("votesCount");
+          if (votesCountElem) {
+            votesCountElem.textContent = `${data.total_votes}/${data.total_possible_votes}`;
           }
         }
-      }
 
-      await attemptCastVote();
+        if (data.status === "vote_completed") {
+          const resultText = getVoteResultText(data.result);
+          document.getElementById("voteResult").innerHTML =
+            `${resultText} (👍 ${data.up_votes} vs 👎 ${data.down_votes})`;
+
+          // Show notification for important results
+          if (["impostor_eliminated", "impostor_wins", "player_eliminated"].includes(data.result)) {
+            showVoteResultNotification(data.result);
+          }
+        } else {
+          document.getElementById("voteResult").innerHTML = "Danke für dein Vote!";
+        }
+
+        await monitorGame();
+        updateConnectionStatus("connected");
+      } catch (err) {
+        console.error("Fehler beim Abstimmen:", err);
+        clickedBtn.innerHTML = originalHTML;
+        upBtn.disabled = false;
+        downBtn.disabled = false;
+        alert(`Fehler beim Abstimmen: ${err.message}`);
+        updateConnectionStatus("error");
+      }
+    }
+
+    function showGameNotification(message, type = "success") {
+      const notification = document.getElementById("gameNotification");
+      const textElem = document.getElementById("notificationText");
+
+      textElem.textContent = message;
+      notification.className = `game-notification ${type}`;
+      notification.classList.remove("hidden");
+
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        notification.classList.add("hidden");
+      }, 4000);
     }
 
     function getVoteResultText(result) {
