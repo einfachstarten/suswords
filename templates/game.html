@@ -341,6 +341,20 @@
         transform: translateX(-50%) translateY(0);
       }
     }
+
+    /* Countdown styles */
+    #redirectCountdown {
+      font-size: 1em;
+      color: var(--accent);
+      margin-top: 20px;
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    #countdown {
+      font-weight: bold;
+      color: var(--highlight);
+      font-size: 1.2em;
+    }
   </style>
 </head>
 <body>
@@ -787,13 +801,45 @@
         }
       }
 
+      // Zeige Game Over Screen mit Countdown
       document.getElementById("gameSection").innerHTML = `
         <div class="game-over ${colorClass}">
           <h2>${emoji} Spiel beendet ${emoji}</h2>
           <p>${message}</p>
           <p>Das geheime Wort war: <strong>${secretWord}</strong></p>
+          <p id="redirectCountdown">Weiterleitung zur Ergebnisseite in <span id="countdown">5</span> Sekunden...</p>
         </div>
       `;
+
+      // Nach 5 Sekunden zur game_ended.html weiterleiten
+      let countdown = 5;
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        const countdownElem = document.getElementById("countdown");
+        if (countdownElem) {
+          countdownElem.textContent = countdown;
+        }
+
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+          redirectToGameEnded(data);
+        }
+      }, 1000);
+    }
+
+    function redirectToGameEnded(gameData) {
+      // Baue die URL mit allen notwendigen Parametern
+      const params = new URLSearchParams({
+        game_id: gameId,
+        player_id: playerId,
+        result: gameData.end_reason || "game_ended",
+        winner: gameData.winner || "unknown",
+        word: gameData.word || gameData.your_word || "???",
+        is_impostor: (gameData.your_role === "impostor").toString()
+      });
+
+      // Weiterleitung zur game_ended Seite
+      window.location.href = `/game_ended?${params.toString()}`;
     }
 
     function updateGameUI(data, playersData) {
