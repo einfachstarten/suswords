@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+  <meta name="app-version" content="{{ app_version }}">
+  <meta name="build-time" content="{{ build_time }}">
+
   <meta charset="UTF-8">
   <title>SusWords – Spiel beendet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="{{ versioned_url(\'static/favicon.ico\') }}">
   <style>
     :root {
       --bg: #1d1b3a;
@@ -204,7 +207,7 @@
   </style>
 </head>
 <body>
-  <img src="/static/suswords.png" alt="SusWords Logo" class="logo animated">
+  <img src="{{ versioned_url(\'static/suswords.png\') }}" alt="SusWords Logo" class="logo animated">
 
   <div class="container animated delay-1">
     <div id="resultBanner" class="result-banner">Spiel beendet</div>

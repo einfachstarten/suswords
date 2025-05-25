@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+  <meta name="app-version" content="{{ app_version }}">
+  <meta name="build-time" content="{{ build_time }}">
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SusWords</title>
 
   <!-- PWA Meta-Tags -->
-  <link rel="manifest" href="/static/manifest.json">
+  <link rel="manifest" href="{{ versioned_url(\'static/manifest.json\') }}">
   <meta name="theme-color" content="#1d1b3a">
   <meta name="description" content="Finde den Impostor! Ein spannendes Multiplayer-Wortspiel.">
 
@@ -16,8 +19,8 @@
   <meta name="apple-mobile-web-app-title" content="SusWords">
 
   <!-- Icons -->
-  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-  <link rel="apple-touch-icon" href="/static/suswords_icon192.png">
+  <link rel="icon" href="{{ versioned_url(\'static/favicon.ico\') }}" type="image/x-icon">
+  <link rel="apple-touch-icon" href="{{ versioned_url(\'static/suswords_icon192.png\') }}">
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
@@ -250,7 +253,7 @@
 <body>
 
   <div class="splash" id="splashScreen">
-    <img src="/static/suswords_splash.png" alt="SusWords Splash">
+    <img src="{{ versioned_url(\'static/suswords_splash.png\') }}" alt="SusWords Splash">
     <div class="progress-bar"><div class="progress-fill"></div></div>
   </div>
 
@@ -450,7 +453,7 @@
     // Service Worker registrieren
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register(`/sw.js?v={{ app_version }}`)
           .then(registration => {
             console.log('ServiceWorker erfolgreich registriert mit Scope:', registration.scope);
           })
