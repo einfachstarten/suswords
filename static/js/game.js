@@ -429,8 +429,8 @@ async function showVoteResults(voteData) {
 
   await showProcessingPhase();
 
-  const upVotes = voteData.votes?.up || 0;
-  const downVotes = voteData.votes?.down || 0;
+  const upVotes = voteData.up_votes || 0;
+  const downVotes = voteData.down_votes || 0;
   const result = voteData.result;
 
   const voteNumbersElement = document.getElementById("voteNumbers");
@@ -900,16 +900,6 @@ function setupSusButtons(players) {
 
   console.log("Setting up SUS buttons for:", suspects.length, "players");
 
-  suspects.forEach(p => {
-    const btn = document.createElement("button");
-    btn.textContent = `SUS ${p.name}`;
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      console.log("SUS button clicked for:", p.name);
-      if (currentVotePhase === null) {
-        startVote(p.player_id, p.name);
-      } else {
-        console.log("Already in voting phase, ignoring click");
   suspects.forEach(p => {
     const btn = document.createElement("button");
     btn.textContent = `SUS ${p.name}`;

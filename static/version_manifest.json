@@ -1,14 +1,14 @@
 {
-  "build_time": "2025-05-25T19:30:42.648696",
-  "build_timestamp": 1748201442,
+  "build_time": "2025-05-25T19:45:38.301934",
+  "build_timestamp": 1748202338,
   "files": {
     "css/game.css": {
       "hash": "718936dd",
       "versioned_path": "css/game.css?v=718936dd"
     },
     "js/game.js": {
-      "hash": "f76e714e",
-      "versioned_path": "js/game.js?v=f76e714e"
+      "hash": "9e2ef61d",
+      "versioned_path": "js/game.js?v=9e2ef61d"
     },
     "suswords.png": {
       "hash": "485c06e7",
@@ -35,9 +35,9 @@
       "versioned_path": "manifest.json?v=53f3801e"
     },
     "sw.js": {
-      "hash": "8a61b020",
-      "versioned_path": "sw.js?v=8a61b020"
+      "hash": "24ea5992",
+      "versioned_path": "sw.js?v=24ea5992"
     }
   },
-  "global_version": "bf862232"
+  "global_version": "c72124d6"
 }

@@ -1,148 +1,111 @@
-const CACHE_VERSION = 'v1.1';
-const CACHE_NAME = `suswords-cache-${CACHE_VERSION}`;
-const OFFLINE_URL = '/';
+// sw.js - Minimaler, stabiler Service Worker für SusWords
 
-const STATIC_ASSETS = [
-  '/',
-  '/static/suswords.png',
-  '/static/suswords_splash.png',
-  '/static/suswords_icon192.png',
-  '/static/suswords_icon512.png',
-  '/static/suswords.mp3',
-  '/static/favicon.ico',
-  '/create',
-  '/static/manifest.json'
-];
+const CACHE_NAME = 'suswords-v' + (new URLSearchParams(location.search).get('v') || Date.now());
 
-// Installation: Cache wichtige Assets
-self.addEventListener('install', event => {
-  console.log('Service Worker wird installiert (Version ' + CACHE_VERSION + ')');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Assets werden gecached');
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => self.skipWaiting())
-  );
+// Install Event - Sofort aktivieren
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installing minimal Service Worker...');
+  event.waitUntil(self.skipWaiting());
 });
 
-// Aktivierung: Alte Caches löschen
-self.addEventListener('activate', event => {
-  console.log('Service Worker aktiviert (Version ' + CACHE_VERSION + ')');
+// Activate Event - Übernehme sofort alle Tabs
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating minimal Service Worker...');
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(cacheName => {
-          return cacheName.startsWith('suswords-cache-') && cacheName !== CACHE_NAME;
-        }).map(cacheName => {
-          console.log('Alte Cache-Version wird gelöscht:', cacheName);
-          return caches.delete(cacheName);
-        })
+    (async () => {
+      // Alle Clients übernehmen
+      await clients.claim();
+
+      // Alte Caches aufräumen
+      const cacheNames = await caches.keys();
+      const oldCaches = cacheNames.filter(name =>
+        name.startsWith('suswords-') && name !== CACHE_NAME
       );
-    }).then(() => {
-      console.log('Service Worker übernimmt sofort die Kontrolle');
-      return self.clients.claim();
-    })
-  );
-});
 
-// Verbesserte Fetch-Strategie mit Netzwerkpriorität für API-Aufrufe
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-
-  // API-Anfragen immer vom Netzwerk
-  if (url.pathname.includes('/api/') ||
-      url.pathname.includes('game_state') ||
-      url.pathname.includes('players_in_game') ||
-      url.pathname.includes('join_game') ||
-      url.pathname.includes('submit_word') ||
-      url.pathname.includes('start_vote') ||
-      url.pathname.includes('cast_vote') ||
-      event.request.method !== 'GET') {
-
-    return event.respondWith(
-      fetch(event.request).catch(error => {
-        console.log('Netzwerkfehler, kann keine API-Anfrage ausführen', error);
-        return new Response(JSON.stringify({
-          error: 'Offline-Modus: Kann keine Verbindung zum Server herstellen.'
-        }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      })
-    );
-  }
-
-  // Für statische Assets: Cache-First-Strategie
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          console.log('Aus Cache bedient:', event.request.url);
-          return response;
-        }
-
-        console.log('Nicht im Cache gefunden, lade vom Netzwerk:', event.request.url);
-        return fetch(event.request).then(networkResponse => {
-          // Nur GET-Anfragen und erfolgreiche Antworten cachen
-          if (event.request.method !== 'GET' ||
-              !networkResponse ||
-              networkResponse.status !== 200 ||
-              networkResponse.type !== 'basic') {
-            return networkResponse;
-          }
-
-          // Wichtig: Response klonen, da wir es zweimal verbrauchen
-          var responseToCache = networkResponse.clone();
-
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              console.log('Neue Ressource wird dem Cache hinzugefügt:', event.request.url);
-              cache.put(event.request, responseToCache);
-            });
-
-          return networkResponse;
-        });
-      })
-      .catch(error => {
-        console.log('Fetch fehlgeschlagen:', error);
-
-        // Für Navigations-Anfragen: Offline-Seite anzeigen
-        if (event.request.mode === 'navigate') {
-          return caches.match(OFFLINE_URL);
-        }
-
-        // Für andere Anfragen: Fehler zurückgeben
-        return new Response('Offline: Ressource nicht verfügbar', {
-          status: 503,
-          statusText: 'Service Unavailable'
-        });
-      })
-  );
-});
-
-// Periodische Synchronisation (falls unterstützt)
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'update-cache') {
-    event.waitUntil(updateCache());
-  }
-});
-
-// Funktion zum Aktualisieren des Caches
-async function updateCache() {
-  const cache = await caches.open(CACHE_NAME);
-
-  // Hauptassets immer aktualisieren
-  for (const url of STATIC_ASSETS) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        await cache.put(url, response);
-        console.log('Asset aktualisiert:', url);
+      if (oldCaches.length > 0) {
+        console.log('[SW] Cleaning old caches:', oldCaches);
+        await Promise.all(oldCaches.map(name => caches.delete(name)));
       }
-    } catch (error) {
-      console.error('Fehler beim Aktualisieren des Assets:', url, error);
-    }
+    })()
+  );
+});
+
+// Fetch Event - Einfache, robuste Strategie
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // Nur HTTP/HTTPS und GET requests behandeln
+  if (!url.protocol.startsWith('http') || request.method !== 'GET') {
+    return;
   }
-}
+
+  // API Calls nicht cachen (immer fresh)
+  if (url.pathname.includes('/api/') ||
+      url.pathname.includes('/game_state/') ||
+      url.pathname.includes('/vote_') ||
+      url.pathname.includes('/debug') ||
+      url.pathname.includes('/create_game') ||
+      url.pathname.includes('/join_game')) {
+    return;
+  }
+
+  // Einfache Strategie: Network-first mit Cache-Fallback
+  event.respondWith(
+    (async () => {
+      try {
+        // Versuche Netzwerk zuerst
+        const networkResponse = await fetch(request);
+
+        // NUR erfolgreiche, komplette Responses cachen
+        if (networkResponse.ok &&
+            networkResponse.status === 200 &&
+            networkResponse.type === 'basic') {
+
+          // Versionierte Assets länger cachen
+          if (url.searchParams.has('v')) {
+            try {
+              const cache = await caches.open(CACHE_NAME);
+              await cache.put(request, networkResponse.clone());
+              console.log('[SW] Cached versioned asset:', url.pathname);
+            } catch (cacheError) {
+              // Cache-Fehler ignorieren, nicht crashen
+              console.warn('[SW] Cache failed:', cacheError.message);
+            }
+          }
+        }
+
+        return networkResponse;
+
+      } catch (networkError) {
+        // Netzwerk fehlgeschlagen - versuche Cache
+        console.log('[SW] Network failed, trying cache for:', url.pathname);
+
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+          console.log('[SW] Serving from cache:', url.pathname);
+          return cachedResponse;
+        }
+
+        // Kein Cache verfügbar - Fehler weiterreichen
+        throw networkError;
+      }
+    })()
+  );
+});
+
+// Message Handler für Version-Updates
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CHECK_VERSION') {
+    event.ports[0].postMessage({
+      type: 'VERSION_INFO',
+      version: CACHE_NAME
+    });
+  }
+
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+console.log('[SW] Minimal Service Worker loaded successfully with cache:', CACHE_NAME);
