@@ -1,0 +1,43 @@
+{
+  "build_time": "2025-05-25T17:14:53.666548",
+  "build_timestamp": 1748193293,
+  "files": {
+    "css/game.css": {
+      "hash": "718936dd",
+      "versioned_path": "css/game.css?v=718936dd"
+    },
+    "js/game.js": {
+      "hash": "f76e714e",
+      "versioned_path": "js/game.js?v=f76e714e"
+    },
+    "suswords.png": {
+      "hash": "485c06e7",
+      "versioned_path": "suswords.png?v=485c06e7"
+    },
+    "suswords_splash.png": {
+      "hash": "dbf7b089",
+      "versioned_path": "suswords_splash.png?v=dbf7b089"
+    },
+    "suswords_icon192.png": {
+      "hash": "8a79d1e0",
+      "versioned_path": "suswords_icon192.png?v=8a79d1e0"
+    },
+    "favicon.ico": {
+      "hash": "8b4592eb",
+      "versioned_path": "favicon.ico?v=8b4592eb"
+    },
+    "suswords.mp3": {
+      "hash": "081c727e",
+      "versioned_path": "suswords.mp3?v=081c727e"
+    },
+    "manifest.json": {
+      "hash": "53f3801e",
+      "versioned_path": "manifest.json?v=53f3801e"
+    },
+    "sw.js": {
+      "hash": "8a61b020",
+      "versioned_path": "sw.js?v=8a61b020"
+    }
+  },
+  "global_version": "bf862232"
+}

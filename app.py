@@ -5,6 +5,8 @@ import os
 import json
 import random
 import time
+from functools import lru_cache
+
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +28,74 @@ if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 # ===== HELPER FUNCTIONS FOR NEW VOTING SYSTEM =====
+
+@lru_cache(maxsize=1)
+def load_version_manifest():
+    """Lädt das Version Manifest (gecacht)"""
+    manifest_path = os.path.join(BASE_DIR, 'static', 'version_manifest.json')
+
+    try:
+        with open(manifest_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Fallback: Timestamp-basierte Versionierung
+        timestamp = str(int(time.time()))
+        return {
+            "global_version": timestamp[:8],
+            "files": {},
+            "build_time": time.strftime('%Y-%m-%dT%H:%M:%S')
+        }
+
+def versioned_url(asset_path):
+    """Gibt versionierte URL für Asset zurück"""
+    manifest = load_version_manifest()
+
+    # Entferne führenden Slash falls vorhanden
+    clean_path = asset_path.lstrip('/')
+
+    if clean_path in manifest["files"]:
+        return f"/{manifest['files'][clean_path]['versioned_path']}"
+    else:
+        # Fallback: Global Version verwenden
+        global_version = manifest.get("global_version", "1")
+        return f"/{asset_path}?v={global_version}"
+
+# Template Helper Funktionen hinzufügen
+@app.context_processor
+def inject_version_helpers():
+    """Stellt Version-Helper für Templates zur Verfügung"""
+    return {
+        'versioned_url': versioned_url,
+        'app_version': load_version_manifest().get("global_version", "1"),
+        'build_time': load_version_manifest().get("build_time", "unknown")
+    }
+
+# Neue Route für Cache-freundliche Assets hinzufügen:
+@app.route('/static/<path:filename>')
+def versioned_static(filename):
+    """Serviert statische Dateien mit Cache-Headers"""
+    response = send_from_directory('static', filename)
+
+    # Aggressive Caching für versionierte Assets
+    if request.args.get('v'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 Jahr
+        response.headers['Expires'] = 'Thu, 31 Dec 2025 23:59:59 GMT'
+    else:
+        # Kurzes Caching für unverlierte Assets
+        response.headers['Cache-Control'] = 'public, max-age=300'  # 5 Minuten
+
+    return response
+
+@app.route('/version')
+def version_info():
+    """API Endpoint für Version-Informationen"""
+    manifest = load_version_manifest()
+    return jsonify({
+        "version": manifest.get("global_version"),
+        "build_time": manifest.get("build_time"),
+        "build_timestamp": manifest.get("build_timestamp")
+    })
+
 
 def check_vote_timeout(game_data):
     """Prüft ob Vote abgelaufen ist und beendet es automatisch"""
@@ -130,6 +200,8 @@ def update_turn_after_elimination(game_data, eliminated_player_id):
                 attempts += 1
 
 # ===== EXISTING ROUTES (keeping all the original routes) =====
+
+
 
 @app.route('/sw.js')
 def serve_sw():
@@ -923,5 +995,12 @@ def restart_game():
 
     return jsonify({"status": "restarted"})
 
+
 if __name__ == "__main__":
+    # Version Manifest bei Entwicklung automatisch erstellen
+    if not os.path.exists(os.path.join(BASE_DIR, 'static', 'version_manifest.json')):
+        print("🔄 Erstelle Version Manifest...")
+        from cache_busting import create_version_manifest
+        create_version_manifest()
+
     app.run(debug=True, host="0.0.0.0", port=5000)
