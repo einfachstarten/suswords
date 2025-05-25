@@ -2,7 +2,7 @@
 
 **Finde den Impostor! Ein spannendes Multiplayer-Wortspiel für 3+ Spieler.**
 
-[![Live Demo](https://img.shields.io/badge/🎮_Live_Demo-SusWords-00f0ff?style=for-the-badge)](https://suswords.pythonanywhere.com)
+[![Live Demo](https://img.shields.io/badge/🎮_Live_Demo-SusWords-00f0ff?style=for-the-badge)](https://impostor.pythonanywhere.com)
 [![GitHub](https://img.shields.io/badge/GitHub-einfachstarten/suswords-181717?style=for-the-badge&logo=github)](https://github.com/einfachstarten/suswords)
 
 ---
@@ -24,7 +24,7 @@ SusWords ist ein browserbasiertes Multiplayer-Wortspiel im "Impostor"-Stil. Jede
 ## 🚀 Schnellstart
 
 ### Spiel starten
-1. Besuche [suswords.pythonanywhere.com](https://suswords.pythonanywhere.com)
+1. Besuche [impostor.pythonanywhere.com](https://impostor.pythonanywhere.com)
 2. Klicke **"🎮 Spiel starten"**
 3. Gib deinen Namen ein
 4. Teile den **QR-Code** oder **Game Code** mit Freunden
