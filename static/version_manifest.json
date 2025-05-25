@@ -1,6 +1,6 @@
 {
-  "build_time": "2025-05-25T20:48:25.845009",
-  "build_timestamp": 1748206105,
+  "build_time": "2025-05-25T21:10:59.739937",
+  "build_timestamp": 1748207459,
   "files": {
     "css/game.css": {
       "hash": "718936dd",
@@ -11,8 +11,8 @@
       "versioned_path": "css/create_game.css?v=b0d4b111"
     },
     "css/join.css": {
-      "hash": "513cd530",
-      "versioned_path": "css/join.css?v=513cd530"
+      "hash": "7963fe9e",
+      "versioned_path": "css/join.css?v=7963fe9e"
     },
     "js/game.js": {
       "hash": "9e2ef61d",
@@ -23,8 +23,8 @@
       "versioned_path": "js/create_game.js?v=0701ac82"
     },
     "js/join.js": {
-      "hash": "5d9336c8",
-      "versioned_path": "js/join.js?v=5d9336c8"
+      "hash": "70508727",
+      "versioned_path": "js/join.js?v=70508727"
     },
     "suswords.png": {
       "hash": "485c06e7",
@@ -55,5 +55,5 @@
       "versioned_path": "sw.js?v=24ea5992"
     }
   },
-  "global_version": "a572cfbb"
+  "global_version": "3281c900"
 }
