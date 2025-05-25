@@ -1,15 +1,19 @@
 #!/bin/bash
-# deploy.sh - Professionelles Deployment Script mit Cache-Busting
+# deploy.sh - Korrigiertes Deployment Script mit automatischer Branch-Erkennung
 
 set -e  # Exit bei Fehlern
 
 echo "🚀 SusWords Deployment gestartet..."
 
-# 1. Version Manifest erstellen
+# 1. Aktuellen Branch ermitteln
+CURRENT_BRANCH=$(git branch --show-current)
+echo "🌿 Aktueller Branch: $CURRENT_BRANCH"
+
+# 2. Version Manifest erstellen
 echo "📦 Erstelle Version Manifest..."
 python3 cache_busting.py
 
-# 2. Git Status prüfen
+# 3. Git Status prüfen
 echo "📋 Prüfe Git Status..."
 if [ -n "$(git status --porcelain)" ]; then
     echo "⚠️  Uncommitted changes gefunden!"
@@ -22,7 +26,7 @@ if [ -n "$(git status --porcelain)" ]; then
     fi
 fi
 
-# 3. Aktuelle Version lesen
+# 4. Aktuelle Version lesen
 if [ -f "static/version_manifest.json" ]; then
     VERSION=$(python3 -c "import json; print(json.load(open('static/version_manifest.json'))['global_version'])")
     echo "🔖 Deployment Version: $VERSION"
@@ -31,16 +35,26 @@ else
     echo "⚠️  Keine Version gefunden"
 fi
 
-# 4. Git Commit mit Version
+# 5. Git Commit mit Version
 echo "📝 Committe Änderungen..."
 git add .
 git commit -m "🚀 Deploy v$VERSION - $(date '+%Y-%m-%d %H:%M:%S')" || echo "ℹ️  Keine neuen Änderungen"
 
-# 5. Push zu GitHub
+# 6. Push zu GitHub (automatische Branch-Erkennung)
 echo "⬆️  Pushe zu GitHub..."
-git push -f origin master:main
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    # Bereits auf main - einfach pushen
+    git push origin main
+elif [ "$CURRENT_BRANCH" = "master" ]; then
+    # master zu main pushen (wie ursprünglich geplant)
+    git push -f origin master:main
+else
+    # Anderen Branch zu main pushen
+    echo "⚠️  Branch '$CURRENT_BRANCH' wird zu 'main' gepusht"
+    git push -f origin $CURRENT_BRANCH:main
+fi
 
-# 6. PythonAnywhere Sync (falls verfügbar)
+# 7. PythonAnywhere Sync (falls verfügbar)
 echo "🔄 Synchronisiere mit PythonAnywhere..."
 
 # Option A: Über PythonAnywhere API (falls konfiguriert)
@@ -52,10 +66,11 @@ fi
 # Option B: Git Pull auf Server auslösen (falls webhook verfügbar)
 # curl -X POST "https://your-webhook-url.com/deploy" || echo "ℹ️  Webhook nicht verfügbar"
 
-# 7. Deployment bestätigen
+# 8. Deployment bestätigen
 echo ""
 echo "✅ DEPLOYMENT ABGESCHLOSSEN!"
 echo "🔖 Version: $VERSION"
+echo "🌿 Branch: $CURRENT_BRANCH → main"
 echo "⏰ Zeit: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 echo "📋 Nächste Schritte:"
