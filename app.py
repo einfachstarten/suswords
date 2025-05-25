@@ -561,19 +561,14 @@ def cast_vote():
                 game_data["end_reason"] = "impostor_found"
                 result = "impostor_eliminated"
             else:
-                # FIXED: Improved check if only impostor and one other player remain
-                remaining_players = [pid for pid in active_players
-                                   if pid != suspect_id and
-                                   pid not in game_data.get("eliminated_players", [])]
+                # FIXED: Korrekte Berechnung der verbleibenden Spieler nach Elimination
+                # Alle Spieler die nach der Elimination noch aktiv sind
+                all_remaining_players = [pid for pid, p in game_data["players"].items()
+                                       if not p.get("eliminated", False) and
+                                       pid not in game_data.get("eliminated_players", [])]
 
-                # Check if impostor is still in the game
-                impostor_still_in_game = (
-                    (impostor_id in remaining_players) or
-                    (impostor_id == suspect_id and up_votes <= down_votes)
-                )
-
-                if impostor_still_in_game and len(remaining_players) == 1:
-                    # Impostor wins if only one other player left
+                # Impostor gewinnt wenn nur noch 2 Spieler übrig sind (impostor + 1 anderer)
+                if impostor_id in all_remaining_players and len(all_remaining_players) == 2:
                     game_data["status"] = "finished"
                     game_data["winner"] = "impostor"
                     game_data["end_reason"] = "not_enough_players"
