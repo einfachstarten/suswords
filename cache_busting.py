@@ -27,9 +27,13 @@ def create_version_manifest():
     static_files = {
         # CSS Files
         'css/game.css': 'static/css/game.css',
+        'css/create_game.css': 'static/css/create_game.css',
+        'css/join.css': 'static/css/join.css',
 
         # JS Files
         'js/game.js': 'static/js/game.js',
+        'js/create_game.js': 'static/js/create_game.js',
+        'js/join.js': 'static/js/join.js',
 
         # Images
         'suswords.png': 'static/suswords.png',

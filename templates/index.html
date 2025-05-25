@@ -119,14 +119,37 @@
       font-size: 1.1em;
       padding: 12px 24px;
       border-radius: 8px;
-      margin-top: 25px;
       text-decoration: none;
       box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
       transition: transform 0.2s;
+      margin: 8px;
+      min-width: 180px;
+      text-align: center;
     }
 
     .start-btn:hover {
       transform: scale(1.05);
+    }
+
+    .start-btn.secondary {
+      background: var(--panel);
+      color: var(--highlight);
+      border: 2px solid var(--highlight);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .start-btn.secondary:hover {
+      background: var(--highlight);
+      color: #000;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 25px;
     }
 
     .footer {
@@ -246,6 +269,24 @@
       .start-btn {
         font-size: 1em;
         padding: 10px 20px;
+        min-width: 160px;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .action-buttons {
+        gap: 10px;
+      }
+
+      .start-btn {
+        min-width: 140px;
+        font-size: 0.95em;
       }
     }
   </style>
@@ -283,7 +324,12 @@
       </table>
 
       <p><em>Starte ein Spiel, sende den Link an deine Freunde, und los geht's!</em></p>
-      <a href="/create" class="start-btn">🎮 Spiel starten</a>
+
+      <div class="action-buttons">
+        <a href="/create" class="start-btn">🎮 Spiel starten</a>
+        <a href="/join" class="start-btn secondary">🔢 Ich habe einen Code</a>
+      </div>
+
       <div id="pwaInstallContainer" style="margin-top: 15px; display: none;">
         <button id="pwaInstallBtn" class="start-btn" style="background: var(--accent);">📱 Als App installieren</button>
       </div>

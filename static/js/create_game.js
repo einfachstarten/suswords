@@ -64,12 +64,15 @@ async function copyGameCode() {
     return;
   }
 
+  const copyBtn = document.querySelector('.copy-code-btn');
+  const originalText = copyBtn.innerHTML;
+
   try {
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(gameId);
     } else {
       // Fallback für ältere Browser
-      const gameCodeInput = document.getElementById('gameCodeValue');
+      const gameCodeInput = document.getElementById('gameCodeDisplay');
       if (gameCodeInput) {
         gameCodeInput.select();
         gameCodeInput.setSelectionRange(0, 99999); // Für mobile
@@ -87,11 +90,17 @@ async function copyGameCode() {
       }
     }
 
+    copyBtn.innerHTML = '✅ Kopiert!';
     showSuccessToast("Spiel-Code kopiert! 📋");
+
+    setTimeout(() => {
+      copyBtn.innerHTML = originalText;
+    }, 2000);
 
   } catch (error) {
     console.error('Copy failed:', error);
     showErrorToast("Code: " + gameId + " (manuell kopieren)");
+    copyBtn.innerHTML = originalText;
   }
 }
 
@@ -133,7 +142,7 @@ async function createGame() {
     document.getElementById("lobbyBox").classList.remove("hidden");
 
     // Update game code display
-    document.getElementById("gameCodeValue").value = gameId;
+    document.getElementById("gameCodeDisplay").value = gameId;
 
     // Generate QR Code and link
     joinLink = `${window.location.origin}/games/${gameId}/join`;

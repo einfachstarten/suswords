@@ -268,6 +268,14 @@ def join_page(game_id):
                          versioned_url=get_versioned_static_url,
                          build_time=get_build_time())
 
+@app.route("/join")
+def join_page_general():
+    return render_template("join.html",
+                         game_id=None,  # Kein Game-ID
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
+
 # ===== DEBUG ROUTES =====
 
 @app.route("/debug")

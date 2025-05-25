@@ -28,15 +28,17 @@
       <div id="qrContainer">
         <div class="qr-label">📱 QR-Code scannen zum Beitreten:</div>
         <div id="qrcode"></div>
+
+        <div class="game-code-container">
+          <input type="text" class="game-code-input" id="gameCodeDisplay" readonly>
+          <button class="copy-code-btn" onclick="copyGameCode()">
+            📋 Code kopieren
+          </button>
+        </div>
+
         <button class="copy-btn" onclick="copyAndShareLink()">
           📋 Link kopieren & teilen
         </button>
-        <div class="game-code-row" style="margin-top: 16px;">
-          <input type="text" class="game-code-input" id="gameCodeValue" value="----" readonly onclick="this.select()" style="font-size: 1rem; padding: 8px 12px;">
-          <button class="copy-btn secondary" onclick="copyGameCode()">
-            🔢 Code kopieren
-          </button>
-        </div>
       </div>
     </section>
 
