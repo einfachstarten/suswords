@@ -4,6 +4,7 @@ import uuid
 import os
 import json
 import random
+import time
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,112 @@ SECRET_WORDS = [
 
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
+
+# ===== HELPER FUNCTIONS FOR NEW VOTING SYSTEM =====
+
+def check_vote_timeout(game_data):
+    """Prüft ob Vote abgelaufen ist und beendet es automatisch"""
+    votes = game_data.get("votes")
+    if not votes or votes.get("status") != "active":
+        return False
+
+    elapsed = time.time() - votes.get("started_at", 0)
+    if elapsed >= votes.get("duration", 30):
+        # Vote automatisch beenden
+        process_vote_result(game_data)
+        votes["status"] = "completed"
+        return True
+    return False
+
+def process_vote_result(game_data):
+    """Berechnet das Vote-Ergebnis nach Ablauf der Zeit"""
+    votes_data = game_data["votes"]
+    vote_counts = {"up": 0, "down": 0}
+
+    for vote in votes_data["votes"].values():
+        if vote in vote_counts:
+            vote_counts[vote] += 1
+
+    # Ergebnis in votes_data speichern
+    votes_data["up_votes"] = vote_counts["up"]
+    votes_data["down_votes"] = vote_counts["down"]
+
+    # Ergebnis bestimmen
+    if vote_counts["up"] > vote_counts["down"]:
+        # Spieler eliminieren
+        suspect_id = votes_data["suspect"]
+        if suspect_id not in game_data.get("eliminated_players", []):
+            if "eliminated_players" not in game_data:
+                game_data["eliminated_players"] = []
+            game_data["eliminated_players"].append(suspect_id)
+            game_data["players"][suspect_id]["eliminated"] = True
+
+        # Spiel-Ende prüfen
+        if suspect_id == game_data.get("impostorId"):
+            game_data["status"] = "finished"
+            game_data["winner"] = "players"
+            game_data["end_reason"] = "impostor_found"
+            votes_data["result"] = "impostor_eliminated"
+        else:
+            # Prüfen ob nur noch Impostor + 1 Spieler übrig
+            active_players = [pid for pid, p in game_data["players"].items()
+                            if not p.get("eliminated", False) and
+                            pid not in game_data.get("eliminated_players", [])]
+
+            # Check if impostor is still in game
+            impostor_id = game_data.get("impostorId")
+            impostor_still_in_game = (impostor_id in active_players)
+
+            if impostor_still_in_game and len(active_players) <= 2:
+                game_data["status"] = "finished"
+                game_data["winner"] = "impostor"
+                game_data["end_reason"] = "not_enough_players"
+                votes_data["result"] = "impostor_wins"
+            else:
+                votes_data["result"] = "player_eliminated"
+                # Update turn order if needed
+                update_turn_after_elimination(game_data, suspect_id)
+    else:
+        votes_data["result"] = "vote_failed"
+
+def update_turn_after_elimination(game_data, eliminated_player_id):
+    """Aktualisiert die Spielreihenfolge nach einer Elimination"""
+    current_index = game_data.get("current_turn_index", 0)
+    turn_order = game_data.get("turn_order", [])
+
+    # Get updated active players after elimination
+    active_turn_order = [pid for pid in turn_order
+                       if not game_data["players"].get(pid, {}).get("eliminated", False)
+                       and pid not in game_data.get("eliminated_players", [])]
+
+    if active_turn_order:
+        # Get the current player
+        if current_index < len(turn_order):
+            current_player_id = turn_order[current_index]
+        else:
+            current_player_id = turn_order[0] if turn_order else None
+
+        # If current player was eliminated or is no longer in active turn order
+        if current_player_id not in active_turn_order or current_player_id == eliminated_player_id:
+            # Find the index of the current player in the original turn order
+            current_idx_in_original = -1
+            for i, pid in enumerate(turn_order):
+                if pid == current_player_id:
+                    current_idx_in_original = i
+                    break
+
+            # Find the next active player in the turn order
+            next_idx_in_original = (current_idx_in_original + 1) % len(turn_order)
+            attempts = 0
+            while attempts < len(turn_order):
+                next_player_id = turn_order[next_idx_in_original]
+                if next_player_id in active_turn_order:
+                    game_data["current_turn_index"] = next_idx_in_original
+                    break
+                next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
+                attempts += 1
+
+# ===== EXISTING ROUTES (keeping all the original routes) =====
 
 @app.route('/sw.js')
 def serve_sw():
@@ -68,9 +175,9 @@ def create_game():
         "id": game_id,
         "status": "lobby",
         "players": {},
-        "votes": None,  # Changed to None instead of {} for clearer active vote detection
+        "votes": None,
         "history": [],
-        "eliminated_players": []  # Added to track eliminated players
+        "eliminated_players": []
     }
     with open(f"{DATA_DIR}/{game_id}.json", "w") as f:
         json.dump(game_data, f)
@@ -108,7 +215,7 @@ def join_game():
         "vote": None,
         "ready": False,
         "is_master": is_first,
-        "eliminated": False  # Added to track player elimination status
+        "eliminated": False
     }
 
     with open(filepath, "w") as f:
@@ -220,6 +327,12 @@ def game_state(game_id, player_id):
     with open(filepath, "r") as f:
         game_data = json.load(f)
 
+    # Check for vote timeout before processing
+    vote_timeout_occurred = check_vote_timeout(game_data)
+    if vote_timeout_occurred:
+        with open(filepath, "w") as f:
+            json.dump(game_data, f)
+
     players = game_data.get("players", {})
     if player_id not in players:
         return jsonify({"error": "player not found"}), 404
@@ -276,7 +389,6 @@ def game_state(game_id, player_id):
 
     # Get vote information
     votes = game_data.get("votes")
-
     active_vote = None
     if votes:
         # Get names for initiator and suspect
@@ -293,7 +405,11 @@ def game_state(game_id, player_id):
             "suspect_name": suspect_name,
             "votes": votes.get("votes", {}),
             "result": votes.get("result"),
-            "overlay_hidden": votes.get("overlay_hidden", False)
+            "status": votes.get("status", "active"),
+            "started_at": votes.get("started_at"),
+            "duration": votes.get("duration", 30),
+            "up_votes": votes.get("up_votes", 0),
+            "down_votes": votes.get("down_votes", 0)
         }
 
     return jsonify({
@@ -411,7 +527,7 @@ def players_in_game(game_id):
     ]
     return jsonify({"players": simplified})
 
-# ===== VOTING ROUTES - FIXED IMPLEMENTATION =====
+# ===== NEW VOTING SYSTEM ROUTES =====
 
 @app.route("/start_vote", methods=["POST"])
 def start_vote():
@@ -467,7 +583,7 @@ def start_vote():
     initiator_name = players[initiator_id]["name"]
     suspect_name = players[suspect_id]["name"]
 
-    # Create vote with timestamp
+    # Create NEW vote structure with timing
     game_data["votes"] = {
         "initiator": initiator_id,
         "initiator_name": initiator_name,
@@ -475,7 +591,11 @@ def start_vote():
         "suspect_name": suspect_name,
         "votes": {},
         "result": None,
-        "started_at": int(os.path.getmtime(filepath))  # Use file modification time as timestamp
+        "started_at": time.time(),  # Unix timestamp for timing
+        "duration": 30,  # 30 seconds voting time
+        "status": "active",  # active, completed, revealed
+        "up_votes": 0,
+        "down_votes": 0
     }
 
     with open(filepath, "w") as f:
@@ -485,7 +605,8 @@ def start_vote():
         "status": "vote_started",
         "suspect": suspect_id,
         "suspect_name": suspect_name,
-        "initiator_name": initiator_name
+        "initiator_name": initiator_name,
+        "duration": 30
     })
 
 @app.route("/cast_vote", methods=["POST"])
@@ -505,8 +626,15 @@ def cast_vote():
     with open(filepath, "r") as f:
         game_data = json.load(f)
 
+    # Check for timeout first
+    vote_timeout_occurred = check_vote_timeout(game_data)
+    if vote_timeout_occurred:
+        with open(filepath, "w") as f:
+            json.dump(game_data, f)
+        return jsonify({"error": "vote has timed out"}), 400
+
     votes_data = game_data.get("votes")
-    if not votes_data or "suspect" not in votes_data:
+    if not votes_data or votes_data.get("status") != "active":
         return jsonify({"error": "no active vote"}), 400
 
     # Check if voter is suspect
@@ -517,138 +645,25 @@ def cast_vote():
     if game_data["players"][voter_id].get("eliminated", False) or voter_id in game_data.get("eliminated_players", []):
         return jsonify({"error": "eliminated players cannot vote"}), 403
 
-    # Record the vote
+    # Check if already voted
+    if voter_id in votes_data["votes"]:
+        return jsonify({"error": "player has already voted"}), 403
+
+    # Record the vote (but don't process result until timeout)
     game_data["votes"]["votes"][voter_id] = vote
-
-    # Count current votes
-    votes = votes_data["votes"]
-    up_votes = list(votes.values()).count("up")
-    down_votes = list(votes.values()).count("down")
-    suspect_id = votes_data["suspect"]
-    impostor_id = game_data.get("impostorId")
-
-    # Check if all active players have voted (except suspect)
-    active_players = [pid for pid, p in game_data["players"].items()
-                      if not p.get("eliminated", False)
-                      and pid not in game_data.get("eliminated_players", [])
-                      and pid != votes_data["suspect"]]
-
-    all_voted = all(pid in votes_data["votes"] for pid in active_players)
-    total_votes = len(votes)
-    total_possible_votes = len(active_players)
-
-    # Prepare result info even if not all have voted yet
-    result = None
-
-    # If all have voted, process the result automatically
-    if all_voted:
-        # Majority vote to eliminate
-        if up_votes > down_votes:
-            # Add suspect to eliminated players
-            if "eliminated_players" not in game_data:
-                game_data["eliminated_players"] = []
-
-            # Make sure we don't add duplicates
-            if suspect_id not in game_data["eliminated_players"]:
-                game_data["eliminated_players"].append(suspect_id)
-
-            game_data["players"][suspect_id]["eliminated"] = True
-
-            # Check if suspect was impostor
-            if suspect_id == impostor_id:
-                game_data["status"] = "finished"
-                game_data["winner"] = "players"
-                game_data["end_reason"] = "impostor_found"
-                result = "impostor_eliminated"
-            else:
-                # FIXED: Korrekte Berechnung der verbleibenden Spieler nach Elimination
-                # Alle Spieler die nach der Elimination noch aktiv sind
-                all_remaining_players = [pid for pid, p in game_data["players"].items()
-                                       if not p.get("eliminated", False) and
-                                       pid not in game_data.get("eliminated_players", [])]
-
-                # Impostor gewinnt wenn nur noch 2 Spieler übrig sind (impostor + 1 anderer)
-                if impostor_id in all_remaining_players and len(all_remaining_players) == 2:
-                    game_data["status"] = "finished"
-                    game_data["winner"] = "impostor"
-                    game_data["end_reason"] = "not_enough_players"
-                    result = "impostor_wins"
-                else:
-                    result = "player_eliminated"
-        else:
-            result = "vote_failed"
-
-        # Store result in vote data
-        game_data["votes"]["result"] = result
-
-        # If the vote passed (player eliminated), update turn order
-        if result in ["player_eliminated", "impostor_eliminated", "impostor_wins"]:
-            # FIXED: Improved next player selection logic
-            current_index = game_data.get("current_turn_index", 0)
-            turn_order = game_data.get("turn_order", [])
-
-            # Get updated active players after vote
-            active_turn_order = [pid for pid in turn_order
-                               if not game_data["players"].get(pid, {}).get("eliminated", False)
-                               and pid not in game_data.get("eliminated_players", [])]
-
-            if active_turn_order:
-                # Get the current player
-                current_player_id = turn_order[current_index % len(turn_order)]
-
-                # If current player was eliminated or is no longer in active turn order
-                if current_player_id not in active_turn_order or current_player_id == suspect_id:
-                    # Find the index of the current player in the original turn order
-                    current_idx_in_original = -1
-                    for i, pid in enumerate(turn_order):
-                        if pid == current_player_id:
-                            current_idx_in_original = i
-                            break
-
-                    # Find the next active player in the turn order
-                    next_idx_in_original = (current_idx_in_original + 1) % len(turn_order)
-                    while next_idx_in_original != current_idx_in_original:
-                        next_player_id = turn_order[next_idx_in_original]
-                        if next_player_id in active_turn_order:
-                            game_data["current_turn_index"] = next_idx_in_original
-                            break
-                        next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
 
     with open(filepath, "w") as f:
         json.dump(game_data, f)
 
-    # Return current vote status, even if not all have voted yet
-    response_data = {
-        "status": "vote_completed" if all_voted else "vote_recorded",
-        "up_votes": up_votes,
-        "down_votes": down_votes,
-        "total_votes": total_votes,
-        "total_possible_votes": total_possible_votes,
-        "all_voted": all_voted
-    }
+    # Return simple confirmation - no live results
+    return jsonify({
+        "status": "vote_recorded",
+        "message": "Vote recorded successfully"
+    })
 
-    # Include result if voting is complete
-    if all_voted and result:
-        response_data["result"] = result
-
-        # Add extra game status info for better end screens
-        response_data["game_status"] = game_data.get("status")
-        if game_data.get("status") == "finished":
-            response_data["winner"] = game_data.get("winner")
-            response_data["end_reason"] = game_data.get("end_reason")
-            response_data["secret_word"] = game_data.get("word")
-        elif result == "player_eliminated":
-            # Add info about who was eliminated
-            response_data["eliminated_player"] = {
-                "id": suspect_id,
-                "name": game_data["players"][suspect_id]["name"]
-            }
-
-    return jsonify(response_data)
-
-@app.route("/vote_status/<game_id>/<player_id>", methods=["GET"])
-def vote_status(game_id, player_id):
-    """Enhanced API endpoint for checking vote status"""
+@app.route("/vote_time_remaining/<game_id>", methods=["GET"])
+def vote_time_remaining(game_id):
+    """Gibt verbleibende Voting-Zeit zurück"""
     filepath = f"{DATA_DIR}/{game_id}.json"
     if not os.path.exists(filepath):
         return jsonify({"error": "game not found"}), 404
@@ -657,15 +672,47 @@ def vote_status(game_id, player_id):
         game_data = json.load(f)
 
     votes = game_data.get("votes")
+    if not votes or votes.get("status") != "active":
+        return jsonify({"active": False})
+
+    elapsed = time.time() - votes.get("started_at", 0)
+    remaining = max(0, votes.get("duration", 30) - elapsed)
+
+    # Auto-beenden wenn Zeit abgelaufen
+    if remaining <= 0:
+        vote_timeout_occurred = check_vote_timeout(game_data)
+        if vote_timeout_occurred:
+            with open(filepath, "w") as f:
+                json.dump(game_data, f)
+
+    return jsonify({
+        "active": remaining > 0,
+        "remaining_seconds": int(remaining),
+        "total_duration": votes.get("duration", 30),
+        "votes_cast": len(votes.get("votes", {})),
+        "status": votes.get("status", "active")
+    })
+
+@app.route("/vote_status/<game_id>/<player_id>", methods=["GET"])
+def vote_status(game_id, player_id):
+    """Enhanced API endpoint for checking vote status - now includes completed results"""
+    filepath = f"{DATA_DIR}/{game_id}.json"
+    if not os.path.exists(filepath):
+        return jsonify({"error": "game not found"}), 404
+
+    with open(filepath, "r") as f:
+        game_data = json.load(f)
+
+    # Check for timeout
+    vote_timeout_occurred = check_vote_timeout(game_data)
+    if vote_timeout_occurred:
+        with open(filepath, "w") as f:
+            json.dump(game_data, f)
+
+    votes = game_data.get("votes")
 
     if not votes or "suspect" not in votes or not votes.get("suspect"):
         return jsonify({"active": False})
-
-    # Count votes
-    vote_counts = {"up": 0, "down": 0}
-    for v in votes.get("votes", {}).values():
-        if v in vote_counts:
-            vote_counts[v] += 1
 
     # Count active players who can vote
     active_players = [pid for pid, p in game_data["players"].items()
@@ -679,7 +726,8 @@ def vote_status(game_id, player_id):
     can_vote = (
         player_id in active_players and
         player_id not in votes.get("votes", {}) and
-        player_id != votes.get("suspect")
+        player_id != votes.get("suspect") and
+        votes.get("status") == "active"
     )
 
     # Also return player names for all voters for better UI display
@@ -691,25 +739,31 @@ def vote_status(game_id, player_id):
             "vote": vote_value
         }
 
+    # Calculate remaining time
+    elapsed = time.time() - votes.get("started_at", 0)
+    remaining = max(0, votes.get("duration", 30) - elapsed)
+
     # Additional data for game status display
     response_data = {
-        "active": True,
+        "active": votes.get("status") in ["active", "completed"],
         "initiator_id": votes.get("initiator"),
         "initiator_name": votes.get("initiator_name", "???"),
         "suspect_id": votes.get("suspect"),
         "suspect_name": votes.get("suspect_name", "???"),
         "already_voted": player_id in votes.get("votes", {}),
         "can_vote": can_vote,
-        "votes": vote_counts,
         "votes_cast": votes_cast,
         "votes_needed": votes_needed,
         "voters": voter_names,
         "result": votes.get("result"),
-        "overlay_hidden": votes.get("overlay_hidden", False)
+        "status": votes.get("status", "active"),
+        "remaining_seconds": int(remaining),
+        "up_votes": votes.get("up_votes", 0),
+        "down_votes": votes.get("down_votes", 0)
     }
 
     # Include extra game status info for better end screens if a result is available
-    if votes.get("result"):
+    if votes.get("result") and votes.get("status") == "completed":
         suspect_id = votes.get("suspect")
         impostor_id = game_data.get("impostorId")
 
@@ -740,37 +794,6 @@ def vote_status(game_id, player_id):
 
     return jsonify(response_data)
 
-@app.route("/end_vote", methods=["POST"])
-def end_vote():
-    """Set vote overlay to be hidden"""
-    data = request.get_json()
-    game_id = data.get("game_id")
-
-    if not game_id:
-        return jsonify({"error": "game_id required"}), 400
-
-    filepath = f"{DATA_DIR}/{game_id}.json"
-    if not os.path.exists(filepath):
-        return jsonify({"error": "game not found"}), 404
-
-    try:
-        with open(filepath, "r") as f:
-            game_data = json.load(f)
-
-        # Check if there is a vote with result
-        if not game_data.get("votes") or not game_data["votes"].get("result"):
-            return jsonify({"error": "no completed vote to end"}), 400
-
-        # Set a flag to hide the overlay for all players
-        game_data["votes"]["overlay_hidden"] = True
-
-        with open(filepath, "w") as f:
-            json.dump(game_data, f)
-
-        return jsonify({"status": "vote_ending"})
-    except Exception as e:
-        return jsonify({"error": f"Failed to end vote: {str(e)}"}), 500
-
 @app.route("/clear_vote", methods=["POST"])
 def clear_vote():
     """Completely clear the vote and remove it from the game data"""
@@ -798,8 +821,16 @@ def clear_vote():
     except Exception as e:
         return jsonify({"error": f"Failed to clear vote: {str(e)}"}), 500
 
+# ===== LEGACY VOTING ROUTES (for backwards compatibility) =====
+
+@app.route("/end_vote", methods=["POST"])
+def end_vote():
+    """Legacy endpoint - now just clears the vote"""
+    return clear_vote()
+
 @app.route("/reveal_vote", methods=["POST"])
 def reveal_vote():
+    """Legacy endpoint - forces vote completion"""
     data = request.get_json()
     game_id = data.get("game_id")
 
@@ -810,60 +841,25 @@ def reveal_vote():
     with open(filepath, "r") as f:
         game_data = json.load(f)
 
-    votes = game_data.get("votes", {})
+    votes = game_data.get("votes")
     if not votes or "votes" not in votes:
         return jsonify({"error": "no active vote"}), 400
 
-    vote_list = votes.get("votes", {})
-    up = list(vote_list.values()).count("up")
-    down = list(vote_list.values()).count("down")
-    suspect = votes.get("suspect")
-    impostor_id = game_data.get("impostorId")
-
-    result = "no_consensus"
-    if up > down:
-        # Mark player as eliminated
-        if suspect not in game_data.get("eliminated_players", []):
-            if "eliminated_players" not in game_data:
-                game_data["eliminated_players"] = []
-            game_data["eliminated_players"].append(suspect)
-            game_data["players"][suspect]["eliminated"] = True
-
-        if suspect == impostor_id:
-            game_data["status"] = "finished"
-            game_data["winner"] = "players"
-            game_data["end_reason"] = "impostor_found"
-            result = "impostor_eliminated"
-        else:
-            # Fixed check if only impostor and one other player remain
-            active_players = [pid for pid, p in game_data["players"].items()
-                             if not p.get("eliminated", False) and
-                             pid not in game_data.get("eliminated_players", [])]
-
-            # Check if impostor is still in game
-            impostor_in_game = impostor_id in active_players
-
-            if impostor_in_game and len(active_players) == 2:
-                # Impostor wins if only one other player left
-                game_data["status"] = "finished"
-                game_data["winner"] = "impostor"
-                game_data["end_reason"] = "not_enough_players"
-                result = "impostor_wins"
-            else:
-                result = "player_eliminated"
-
-    # Store result
-    game_data["votes"]["result"] = result
+    # Force process the result
+    process_vote_result(game_data)
+    game_data["votes"]["status"] = "completed"
 
     with open(filepath, "w") as f:
         json.dump(game_data, f)
 
     return jsonify({
-        "result": result,
-        "votes": vote_list,
-        "up_votes": up,
-        "down_votes": down
+        "result": votes.get("result", "no_consensus"),
+        "votes": votes.get("votes", {}),
+        "up_votes": votes.get("up_votes", 0),
+        "down_votes": votes.get("down_votes", 0)
     })
+
+# ===== GAME MANAGEMENT ROUTES =====
 
 @app.route("/end_game", methods=["POST"])
 def end_game():

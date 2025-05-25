@@ -133,42 +133,80 @@ button:disabled {
   border-color: #ff1a4d;
 }
 
-/* Inline Voting System - Ersetzt das problematische Overlay */
-#votingSection {
-  background: linear-gradient(135deg, var(--danger), #ff4466);
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  border: 2px solid var(--danger);
-  box-shadow: 0 0 20px rgba(255, 50, 96, 0.3);
-  animation: votingPulse 2s ease-in-out infinite;
+/* ===== NEW VOTING OVERLAY SYSTEM ===== */
+
+#susOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: overlayFadeIn 0.3s ease-out;
 }
 
-@keyframes votingPulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(255, 50, 96, 0.3); }
-  50% { box-shadow: 0 0 30px rgba(255, 50, 96, 0.6); }
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.overlay-content {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+  border: 2px solid var(--highlight);
+  text-align: center;
+  position: relative;
+}
+
+#susText {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.2rem, 5vw, 2rem);
+  color: var(--highlight);
+  margin-bottom: 30px;
+  font-weight: bold;
+}
+
+/* ===== VOTING PHASE ===== */
+
+.voting-phase {
+  animation: phaseSlideIn 0.4s ease-out;
+}
+
+@keyframes phaseSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .voting-header h3 {
   margin: 0 0 10px 0;
-  color: white;
+  color: var(--accent);
   font-family: 'Orbitron', sans-serif;
-  font-size: clamp(1.2rem, 4vw, 1.8rem);
-  text-align: center;
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
 }
 
 .voting-header p {
-  margin: 0 0 20px 0;
-  color: #ffeeee;
-  font-size: clamp(1rem, 3vw, 1.2rem);
-  text-align: center;
+  margin: 0 0 25px 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 3vw, 1.1rem);
 }
 
-.vote-buttons {
+.vote-btns {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   flex-wrap: wrap;
 }
 
@@ -176,148 +214,323 @@ button:disabled {
   background: white;
   color: #333;
   border: none;
-  border-radius: 8px;
-  padding: 16px 24px;
-  font-size: clamp(1.2rem, 4vw, 1.5rem);
+  border-radius: 12px;
+  padding: 20px 24px;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 140px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
 }
 
-.vote-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+.vote-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  transition: left 0.3s ease;
+  z-index: 0;
 }
 
-.vote-yes:hover {
+.vote-btn > * {
+  position: relative;
+  z-index: 1;
+}
+
+.vote-emoji {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.vote-text {
+  font-size: clamp(0.9rem, 3vw, 1rem);
+}
+
+.vote-yes:hover, .vote-yes:focus {
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(75, 220, 101, 0.4);
+}
+
+.vote-yes:hover::before, .vote-yes:focus::before {
   background: var(--success);
-  color: white;
+  left: 0;
 }
 
-.vote-no:hover {
-  background: var(--danger);
+.vote-no:hover, .vote-no:focus {
   color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 50, 96, 0.4);
+}
+
+.vote-no:hover::before, .vote-no:focus::before {
+  background: var(--danger);
+  left: 0;
 }
 
 .vote-btn:disabled {
-  background: #ccc;
-  color: #666;
+  background: #666;
+  color: #aaa;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.voting-status {
-  text-align: center;
-  color: white;
+.vote-timer {
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  color: var(--accent);
+  font-weight: bold;
+  margin: 20px 0;
+  padding: 16px;
+  background: rgba(255, 204, 0, 0.1);
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  animation: timerPulse 1s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 204, 0, 0.6);
+  }
+}
+
+.vote-timer.warning {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(255, 50, 96, 0.1);
+  animation: timerWarning 0.5s ease-in-out infinite;
+}
+
+@keyframes timerWarning {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 50, 96, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 50, 96, 0.8);
+  }
+}
+
+.vote-confirmation {
+  background: rgba(75, 220, 101, 0.2);
+  border: 2px solid var(--success);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+  color: var(--success);
+  font-weight: bold;
+  font-size: clamp(1rem, 3vw, 1.1rem);
+  animation: confirmationSlide 0.4s ease-out;
+}
+
+@keyframes confirmationSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .vote-progress {
-  font-size: clamp(1rem, 3vw, 1.2rem);
-  margin-bottom: 15px;
-}
-
-.vote-timer {
-  font-weight: bold;
-  color: var(--accent);
-  margin-top: 8px;
-}
-
-.voter-summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 15px;
-}
-
-.voter-item {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 8px 12px;
-  border-radius: 6px;
+  color: var(--muted);
   font-size: clamp(0.9rem, 3vw, 1rem);
-  backdrop-filter: blur(5px);
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
-.voting-result {
+/* ===== PROCESSING PHASE ===== */
+
+.processing-phase {
+  animation: phaseSlideIn 0.4s ease-out;
   text-align: center;
-  margin-top: 20px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  color: white;
-  font-size: clamp(1rem, 3vw, 1.3rem);
+}
+
+.processing-content h3 {
+  margin: 0 0 15px 0;
+  color: var(--highlight);
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.3rem, 4vw, 1.6rem);
+}
+
+.processing-content p {
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 3vw, 1.1rem);
+}
+
+.processing-spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(0, 240, 255, 0.2);
+  border-top: 6px solid var(--highlight);
+  border-radius: 50%;
+  margin: 0 auto 25px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== RESULTS PHASE ===== */
+
+.results-phase {
+  animation: phaseSlideIn 0.4s ease-out;
+  text-align: center;
+}
+
+.result-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
+  color: var(--highlight);
+  margin-bottom: 25px;
   font-weight: bold;
 }
 
-/* Emergency Overlay - Nur für kritische Nachrichten */
-#emergencyOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
+.result-details {
+  margin-bottom: 30px;
 }
 
-.emergency-content {
-  background: var(--panel);
-  padding: 30px;
+.vote-numbers {
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
+  color: var(--accent);
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.vote-outcome {
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  font-weight: bold;
+  padding: 16px;
   border-radius: 12px;
-  text-align: center;
-  max-width: 90vw;
+  margin: 15px 0;
+}
+
+.vote-outcome.win {
+  background: rgba(75, 220, 101, 0.2);
+  color: var(--success);
+  border: 2px solid var(--success);
+}
+
+.vote-outcome.lose {
+  background: rgba(255, 50, 96, 0.2);
+  color: var(--danger);
   border: 2px solid var(--danger);
 }
 
-.emergency-content h2 {
-  color: var(--danger);
-  margin-bottom: 20px;
-}
-
-.emergency-content button {
-  background: var(--highlight);
-  color: #000;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 20px;
-}
-
-.hidden {
-  display: none;
-}
-
-#closeVote {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: var(--accent);
-  color: #000;
-  padding: 12px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  min-width: var(--touch-target);
-  min-height: var(--touch-target);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.vote-outcome.neutral {
+  background: rgba(255, 204, 0, 0.2);
+  color: var(--accent);
   border: 2px solid var(--accent);
 }
 
-#errorMessage {
-  color: #ff5555;
-  margin-top: 10px;
+.progress-container {
+  margin-top: 25px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--highlight), var(--accent));
+  width: 0%;
+  transition: width 0.1s linear;
+  animation: progressGlow 2s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+  }
+}
+
+.progress-text {
+  color: var(--muted);
+  font-size: clamp(0.9rem, 3vw, 1rem);
+  font-family: 'Orbitron', sans-serif;
+}
+
+#progressCountdown {
+  color: var(--highlight);
   font-weight: bold;
-  padding: 12px;
-  background: rgba(255, 85, 85, 0.1);
-  border-radius: 8px;
-  border: 1px solid #ff5555;
+  font-size: 1.1em;
+}
+
+/* ===== SUSPECT WAITING ===== */
+
+.suspect-waiting {
+  animation: phaseSlideIn 0.4s ease-out;
+  text-align: center;
+}
+
+.suspect-content {
+  background: rgba(255, 50, 96, 0.1);
+  border: 2px solid var(--danger);
+  border-radius: 16px;
+  padding: 30px;
+}
+
+.suspect-content h3 {
+  margin: 0 0 15px 0;
+  color: var(--danger);
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
+}
+
+.suspect-content p {
+  margin: 0 0 20px 0;
+  color: var(--text);
+  font-size: clamp(1rem, 3vw, 1.1rem);
+}
+
+.suspect-timer {
+  font-size: clamp(1rem, 4vw, 1.2rem);
+  color: var(--danger);
+  font-weight: bold;
+  padding: 16px;
+  background: rgba(255, 50, 96, 0.2);
+  border-radius: 12px;
+  animation: suspectPulse 1s ease-in-out infinite;
+}
+
+@keyframes suspectPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 50, 96, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 50, 96, 0.6);
+  }
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+.hidden {
+  display: none !important;
 }
 
 .loading {
@@ -339,17 +552,16 @@ button:disabled {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* ===== EXISTING STYLES (unchanged) ===== */
 
-.vote-result {
-  font-size: clamp(1rem, 4vw, 1.5rem);
-  margin: 20px 0;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
+#errorMessage {
+  color: #ff5555;
+  margin-top: 10px;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(255, 85, 85, 0.1);
+  border-radius: 8px;
+  border: 1px solid #ff5555;
 }
 
 .word-counter {
@@ -364,7 +576,6 @@ strike {
   text-decoration: line-through;
 }
 
-/* Game over screen styles */
 .game-over {
   text-align: center;
   padding: 30px;
@@ -398,7 +609,6 @@ strike {
   border: 2px solid var(--accent);
 }
 
-/* Connection status */
 .connection-status {
   position: fixed;
   bottom: 20px;
@@ -427,66 +637,11 @@ strike {
   border: 1px solid var(--danger);
 }
 
-/* Vote status styles */
-.vote-count {
-  margin: 16px 0;
-  font-size: clamp(1rem, 4vw, 1.2rem);
-  color: var(--accent);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.vote-timer {
-  margin-top: 20px;
-  font-size: clamp(1rem, 4vw, 1.2rem);
-  color: var(--text);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.vote-summary {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 12px;
-  padding: 16px;
-  margin: 20px 0;
-  max-width: 90vw;
-}
-
-.vote-summary h3 {
-  margin-top: 0;
-  color: var(--highlight);
-  font-size: clamp(1rem, 4vw, 1.2rem);
-}
-
-.voter-list {
-  list-style: none;
-  padding: 0;
-  margin: 12px 0;
-  text-align: left;
-}
-
-.voter-list li {
-  padding: 8px;
-  border-bottom: 1px solid #444;
-  font-size: clamp(0.9rem, 3vw, 1rem);
-}
-
-.voter-list .voted-up {
-  color: var(--success);
-}
-
-.voter-list .voted-down {
-  color: var(--danger);
-}
-
 .eliminated-player {
   color: var(--muted);
   text-decoration: line-through;
 }
 
-/* Custom Toast System */
 .toast {
   position: fixed;
   top: 50%;
@@ -553,7 +708,6 @@ strike {
   }
 }
 
-/* History list improvements */
 #historyList {
   padding: 0;
   margin: 16px 0;
@@ -568,7 +722,6 @@ strike {
   font-size: clamp(0.9rem, 3vw, 1rem);
 }
 
-/* Countdown styles */
 #redirectCountdown {
   font-size: clamp(0.9rem, 3vw, 1rem);
   color: var(--accent);
@@ -585,7 +738,8 @@ strike {
   font-size: 1.2em;
 }
 
-/* Responsive improvements */
+/* ===== RESPONSIVE IMPROVEMENTS ===== */
+
 @media (max-width: 480px) {
   body {
     padding: 12px;
@@ -596,19 +750,19 @@ strike {
     margin-bottom: 16px;
   }
 
+  .overlay-content {
+    padding: 20px;
+    margin: 10px;
+  }
+
   .vote-btns {
+    flex-direction: column;
     gap: 16px;
   }
 
-  .vote-btns button {
-    min-width: 100px;
-    min-height: 70px;
-    font-size: 1.5rem;
-  }
-
-  .vote-summary {
-    padding: 12px;
-    margin: 16px 0;
+  .vote-btn {
+    min-width: unset;
+    width: 100%;
   }
 
   .connection-status {
@@ -617,13 +771,29 @@ strike {
   }
 }
 
-/* Improved focus visibility */
+@media (max-width: 320px) {
+  .vote-btns {
+    gap: 12px;
+  }
+
+  .vote-btn {
+    padding: 16px 20px;
+  }
+
+  .overlay-content {
+    padding: 16px;
+  }
+}
+
+/* ===== IMPROVED FOCUS VISIBILITY ===== */
+
 button:focus-visible, input:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Better touch targets */
+/* ===== BETTER TOUCH TARGETS ===== */
+
 @media (pointer: coarse) {
   button {
     min-height: 48px;
@@ -631,12 +801,6 @@ button:focus-visible, input:focus-visible {
   }
 
   input {
-    min-height: 48px;
-    padding: 16px;
-  }
-
-  #closeVote {
-    min-width: 48px;
     min-height: 48px;
     padding: 16px;
   }

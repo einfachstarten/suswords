@@ -33,19 +33,76 @@
     </section>
   </div>
 
-  <div id="susOverlay">
-    <div id="closeVote">✕</div>
-    <div id="susText">...</div>
-    <div class="vote-btns">
-      <button id="voteUpBtn" type="button">👍</button>
-      <button id="voteDownBtn" type="button">👎</button>
+  <!-- NEW VOTING OVERLAY WITH PHASES -->
+  <div id="susOverlay" style="display: none;">
+    <div class="overlay-content">
+      <div id="susText">...</div>
+
+      <!-- VOTING PHASE (30 seconds) -->
+      <div id="votingSection" class="voting-phase">
+        <div class="voting-header">
+          <h3>🗳️ Abstimmung läuft</h3>
+          <p>Ist dieser Spieler verdächtig?</p>
+        </div>
+
+        <div class="vote-btns">
+          <button id="voteUpBtn" class="vote-btn vote-yes" type="button">
+            <span class="vote-emoji">👍</span>
+            <span class="vote-text">Ja, verdächtig!</span>
+          </button>
+          <button id="voteDownBtn" class="vote-btn vote-no" type="button">
+            <span class="vote-emoji">👎</span>
+            <span class="vote-text">Nein, unschuldig!</span>
+          </button>
+        </div>
+
+        <div id="voteTimer" class="vote-timer">⏱️ <span id="timerSeconds">30</span> Sekunden verbleibend</div>
+        <div id="voteCastConfirmation" class="vote-confirmation hidden">
+          ✅ Stimme abgegeben! Warte auf andere Spieler...
+        </div>
+
+        <div id="voteProgress" class="vote-progress hidden">
+          <span id="votesCount">0</span> von <span id="votesTotal">0</span> Spielern haben abgestimmt
+        </div>
+      </div>
+
+      <!-- PROCESSING PHASE (1.5 seconds) -->
+      <div id="processingSection" class="processing-phase hidden">
+        <div class="processing-content">
+          <div class="processing-spinner"></div>
+          <h3>⚙️ Wird berechnet...</h3>
+          <p>Abstimmung wird ausgewertet</p>
+        </div>
+      </div>
+
+      <!-- RESULTS PHASE (8 seconds) -->
+      <div id="resultsSection" class="results-phase hidden">
+        <div id="voteResultTitle" class="result-title">Abstimmung beendet</div>
+
+        <div id="voteResultDetails" class="result-details">
+          <div id="voteNumbers" class="vote-numbers">👍 0 vs 👎 0</div>
+          <div id="voteOutcome" class="vote-outcome"></div>
+        </div>
+
+        <div id="progressContainer" class="progress-container">
+          <div id="progressBar" class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div id="progressText" class="progress-text">
+            Weiterleitung in <span id="progressCountdown">8</span> Sekunden...
+          </div>
+        </div>
+      </div>
+
+      <!-- SUSPECT WAITING MESSAGE -->
+      <div id="suspectWaitingSection" class="suspect-waiting hidden">
+        <div class="suspect-content">
+          <h3>⏳ Du wirst verdächtigt!</h3>
+          <p>Warte auf die Abstimmung der anderen Spieler...</p>
+          <div class="suspect-timer">⏱️ <span id="suspectTimerSeconds">30</span> Sekunden verbleibend</div>
+        </div>
+      </div>
     </div>
-    <div id="voteTimer" class="vote-timer hidden">Zeit zum Abstimmen: 15s</div>
-    <div id="voteSummary" class="vote-summary hidden">
-      <h3>Abstimmung (<span id="votesCount">0/0</span> abgestimmt):</h3>
-      <ul id="voterList" class="voter-list"></ul>
-    </div>
-    <div id="voteResult" class="vote-result hidden"></div>
   </div>
 
   <div id="connectionStatus" class="connection-status status-connected">
