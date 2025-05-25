@@ -5,8 +5,6 @@ import os
 import json
 import random
 import time
-from functools import lru_cache
-
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,75 +25,42 @@ SECRET_WORDS = [
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-# ===== HELPER FUNCTIONS FOR NEW VOTING SYSTEM =====
+# ===== CACHE-BUSTING FUNKTIONEN =====
 
-@lru_cache(maxsize=1)
-def load_version_manifest():
-    """Lädt das Version Manifest (gecacht)"""
-    manifest_path = os.path.join(BASE_DIR, 'static', 'version_manifest.json')
-
+def get_app_version():
+    """Gibt die aktuelle App-Version zurück"""
     try:
-        with open(manifest_path, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        # Fallback: Timestamp-basierte Versionierung
-        timestamp = str(int(time.time()))
-        return {
-            "global_version": timestamp[:8],
-            "files": {},
-            "build_time": time.strftime('%Y-%m-%dT%H:%M:%S')
-        }
+        with open(os.path.join(BASE_DIR, 'static', 'version_manifest.json'), 'r') as f:
+            manifest = json.load(f)
+        return manifest.get('global_version', '1')
+    except:
+        return str(int(time.time()))[:8]
 
-def versioned_url(asset_path):
-    """Gibt versionierte URL für Asset zurück"""
-    manifest = load_version_manifest()
+def get_versioned_static_url(asset_path):
+    """Gibt versionierte URL für statische Assets zurück"""
+    try:
+        with open(os.path.join(BASE_DIR, 'static', 'version_manifest.json'), 'r') as f:
+            manifest = json.load(f)
 
-    # Entferne führenden Slash falls vorhanden
-    clean_path = asset_path.lstrip('/')
+        clean_path = asset_path.lstrip('/')
+        if clean_path in manifest.get("files", {}):
+            return f"/{manifest['files'][clean_path]['versioned_path']}"
+        else:
+            version = manifest.get("global_version", "1")
+            return f"/{asset_path}?v={version}"
+    except:
+        return f"/{asset_path}?v={get_app_version()}"
 
-    if clean_path in manifest["files"]:
-        return f"/{manifest['files'][clean_path]['versioned_path']}"
-    else:
-        # Fallback: Global Version verwenden
-        global_version = manifest.get("global_version", "1")
-        return f"/{asset_path}?v={global_version}"
+def get_build_time():
+    """Gibt Build-Zeit zurück"""
+    try:
+        with open(os.path.join(BASE_DIR, 'static', 'version_manifest.json'), 'r') as f:
+            manifest = json.load(f)
+        return manifest.get('build_time', 'unknown')
+    except:
+        return time.strftime('%Y-%m-%dT%H:%M:%S')
 
-# Template Helper Funktionen hinzufügen
-@app.context_processor
-def inject_version_helpers():
-    """Stellt Version-Helper für Templates zur Verfügung"""
-    return {
-        'versioned_url': versioned_url,
-        'app_version': load_version_manifest().get("global_version", "1"),
-        'build_time': load_version_manifest().get("build_time", "unknown")
-    }
-
-# Neue Route für Cache-freundliche Assets hinzufügen:
-@app.route('/static/<path:filename>')
-def versioned_static(filename):
-    """Serviert statische Dateien mit Cache-Headers"""
-    response = send_from_directory('static', filename)
-
-    # Aggressive Caching für versionierte Assets
-    if request.args.get('v'):
-        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 Jahr
-        response.headers['Expires'] = 'Thu, 31 Dec 2025 23:59:59 GMT'
-    else:
-        # Kurzes Caching für unverlierte Assets
-        response.headers['Cache-Control'] = 'public, max-age=300'  # 5 Minuten
-
-    return response
-
-@app.route('/version')
-def version_info():
-    """API Endpoint für Version-Informationen"""
-    manifest = load_version_manifest()
-    return jsonify({
-        "version": manifest.get("global_version"),
-        "build_time": manifest.get("build_time"),
-        "build_timestamp": manifest.get("build_timestamp")
-    })
-
+# ===== HELPER FUNCTIONS FOR VOTING SYSTEM =====
 
 def check_vote_timeout(game_data):
     """Prüft ob Vote abgelaufen ist und beendet es automatisch"""
@@ -199,31 +164,82 @@ def update_turn_after_elimination(game_data, eliminated_player_id):
                 next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
                 attempts += 1
 
-# ===== EXISTING ROUTES (keeping all the original routes) =====
-
-
+# ===== STATIC ROUTES =====
 
 @app.route('/sw.js')
 def serve_sw():
     return send_from_directory('.', 'sw.js', mimetype='application/javascript')
 
+@app.route('/static/<path:filename>')
+def versioned_static(filename):
+    """Serviert statische Dateien mit Cache-Headers"""
+    try:
+        response = send_from_directory('static', filename)
+
+        # Aggressive Caching für versionierte Assets
+        if request.args.get('v'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'  # 1 Jahr
+            response.headers['Expires'] = 'Thu, 31 Dec 2025 23:59:59 GMT'
+        else:
+            # Kurzes Caching für unverlierte Assets
+            response.headers['Cache-Control'] = 'public, max-age=300'  # 5 Minuten
+
+        return response
+    except Exception as e:
+        print(f"Static file error: {e}")
+        return "File not found", 404
+
+@app.route('/version')
+def version_info():
+    """API Endpoint für Version-Informationen"""
+    try:
+        with open(os.path.join(BASE_DIR, 'static', 'version_manifest.json'), 'r') as f:
+            manifest = json.load(f)
+        return jsonify({
+            "version": manifest.get("global_version"),
+            "build_time": manifest.get("build_time"),
+            "build_timestamp": manifest.get("build_timestamp")
+        })
+    except:
+        return jsonify({
+            "version": get_app_version(),
+            "build_time": get_build_time(),
+            "build_timestamp": int(time.time())
+        })
+
+# ===== TEMPLATE ROUTES =====
+
 @app.route("/")
 def landing_page():
-    return render_template("index.html")
+    return render_template("index.html",
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
 
 @app.route("/ui")
 def test_ui():
-    return render_template("test_ui.html")
+    return render_template("test_ui.html",
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
 
 @app.route("/create")
 def create_game_ui():
-    return render_template("create_game.html")
+    return render_template("create_game.html",
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
 
 @app.route("/game")
 def game():
     game_id = request.args.get("game_id")
     player_id = request.args.get("player_id")
-    return render_template("game.html", game_id=game_id, player_id=player_id)
+    return render_template("game.html",
+                         game_id=game_id,
+                         player_id=player_id,
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
 
 @app.route("/game_ended")
 def game_ended():
@@ -233,12 +249,79 @@ def game_ended():
     winner = request.args.get("winner")
     word = request.args.get("word")
     is_impostor = request.args.get("is_impostor")
-    return render_template("game_ended.html", game_id=game_id, player_id=player_id,
-                          result=result, winner=winner, word=word, is_impostor=is_impostor)
+    return render_template("game_ended.html",
+                         game_id=game_id,
+                         player_id=player_id,
+                         result=result,
+                         winner=winner,
+                         word=word,
+                         is_impostor=is_impostor,
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
 
 @app.route("/games/<game_id>/join")
 def join_page(game_id):
-    return render_template("join.html", game_id=game_id)
+    return render_template("join.html",
+                         game_id=game_id,
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
+
+# ===== DEBUG ROUTES =====
+
+@app.route("/debug")
+def debug_versioning():
+    """Debug Route um versioned_url zu testen"""
+    test_results = {}
+
+    try:
+        test_results["versioned_url_function"] = get_versioned_static_url("static/css/game.css")
+        test_results["app_version"] = get_app_version()
+        test_results["manifest_exists"] = os.path.exists(os.path.join(BASE_DIR, 'static', 'version_manifest.json'))
+
+        # Test alle Assets
+        test_results["all_assets"] = {}
+        for asset in ["static/css/game.css", "static/js/game.js", "static/suswords.png"]:
+            test_results["all_assets"][asset] = get_versioned_static_url(asset)
+
+        test_results["status"] = "success"
+
+    except Exception as e:
+        test_results["error"] = str(e)
+        test_results["status"] = "error"
+
+    return jsonify(test_results)
+
+@app.route("/debug_template")
+def debug_template():
+    """Debug Template mit direkter Variable-Übergabe"""
+    app_version = get_app_version()
+
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Debug versioned_url</title>
+        <meta name="app-version" content="{app_version}">
+        <link rel="stylesheet" href="{get_versioned_static_url('static/css/game.css')}">
+    </head>
+    <body>
+        <h1>Debug versioned_url</h1>
+        <p>App Version: {app_version}</p>
+        <p>CSS URL: {get_versioned_static_url('static/css/game.css')}</p>
+        <p>JS URL: {get_versioned_static_url('static/js/game.js')}</p>
+        <p>Image URL: {get_versioned_static_url('static/suswords.png')}</p>
+
+        <script>
+            console.log('Meta app-version:', document.querySelector('meta[name="app-version"]')?.content);
+            console.log('CSS URL from link:', document.querySelector('link[rel="stylesheet"]')?.href);
+        </script>
+    </body>
+    </html>
+    '''
+
+# ===== GAME API ROUTES =====
 
 @app.route("/create_game", methods=["POST"])
 def create_game():
@@ -599,7 +682,7 @@ def players_in_game(game_id):
     ]
     return jsonify({"players": simplified})
 
-# ===== NEW VOTING SYSTEM ROUTES =====
+# ===== VOTING SYSTEM ROUTES =====
 
 @app.route("/start_vote", methods=["POST"])
 def start_vote():
@@ -995,12 +1078,14 @@ def restart_game():
 
     return jsonify({"status": "restarted"})
 
-
 if __name__ == "__main__":
     # Version Manifest bei Entwicklung automatisch erstellen
     if not os.path.exists(os.path.join(BASE_DIR, 'static', 'version_manifest.json')):
         print("🔄 Erstelle Version Manifest...")
-        from cache_busting import create_version_manifest
-        create_version_manifest()
+        try:
+            from cache_busting import create_version_manifest
+            create_version_manifest()
+        except ImportError:
+            print("⚠️  cache_busting.py nicht gefunden, aber Cache-Busting funktioniert trotzdem")
 
     app.run(debug=True, host="0.0.0.0", port=5000)

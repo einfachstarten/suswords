@@ -1,0 +1,43 @@
+🧪 TEMPLATE FUNKTIONSTEST
+========================================
+
+📝 test_ui_working.html:
+
+📝 game.html:
+  ✅ versioned_url Calls gefunden:
+     - static/favicon.ico
+     - static/css/game.css
+     - static/suswords.png
+     - static/js/game.js
+  🔧 JavaScript Referenzen:
+     - "static/js/game.js"
+  ✅ game.html verwendet versioned_url
+
+📝 test_ui.html:
+
+📝 game_ended.html:
+  ✅ versioned_url Calls gefunden:
+     - static/favicon.ico
+     - static/suswords.png
+
+📝 index.html:
+  ✅ versioned_url Calls gefunden:
+     - static/manifest.json
+     - static/favicon.ico
+     - static/suswords_icon192.png
+     - static/suswords_splash.png
+
+📝 create_game.html:
+  ✅ versioned_url Calls gefunden:
+     - static/favicon.ico
+     - static/suswords.mp3
+     - static/suswords.png
+
+📝 join.html:
+  ✅ versioned_url Calls gefunden:
+     - static/favicon.ico
+     - static/suswords.png
+     - static/suswords.mp3
+
+==================================================
+Verbleibende URLs reparieren? (y/N): 

@@ -8,7 +8,7 @@
   <title>SusWords – Beitreten</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/x-icon" href="{{ versioned_url(\'static/favicon.ico\') }}">
+  <link rel="icon" type="image/x-icon" href="{{ versioned_url("static/favicon.ico") }}">
   <style>
     :root {
       --bg: #1d1b3a;
@@ -112,7 +112,7 @@
   </style>
 </head>
 <body>
-  <img src="{{ versioned_url(\'static/suswords.png\') }}" alt="SusWords Logo" class="logo">
+  <img src="{{ versioned_url("static/suswords.png") }}" alt="SusWords Logo" class="logo">
 
   <div class="container">
     <h1>🎮 Du wurdest zu einem Spiel eingeladen!</h1>
@@ -123,7 +123,7 @@
     <div id="waitingMessage" style="display:none;">🕒 Warte auf Spielstart durch den Spielleiter...</div>
   </div>
 
-  <audio id="lobbyMusic" src="{{ versioned_url(\'static/suswords.mp3\') }}" loop autoplay></audio>
+  <audio id="lobbyMusic" src="{{ versioned_url("static/suswords.mp3") }}" loop autoplay></audio>
 
   <script>
     const gameId = '{{ game_id }}';
