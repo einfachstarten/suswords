@@ -125,7 +125,64 @@ def process_vote_result(game_data):
                 # Update turn order if needed
                 update_turn_after_elimination(game_data, suspect_id)
     else:
+        # Vote failed (unentschieden oder mehr down votes)
         votes_data["result"] = "vote_failed"
+
+        # BUGFIX: Bei gescheitertem Vote das Spiel normal weiterlaufen lassen
+        # Überprüfe trotzdem, ob das Spiel noch sinnvoll fortsetzbar ist
+        active_players = [pid for pid, p in game_data["players"].items()
+                         if not p.get("eliminated", False) and
+                         pid not in game_data.get("eliminated_players", [])]
+
+        impostor_id = game_data.get("impostorId")
+        impostor_still_in_game = (impostor_id in active_players)
+
+        # Nur dann das Spiel beenden, wenn tatsächlich nur noch 2 Spieler übrig sind
+        if impostor_still_in_game and len(active_players) <= 2:
+            game_data["status"] = "finished"
+            game_data["winner"] = "impostor"
+            game_data["end_reason"] = "not_enough_players"
+            votes_data["result"] = "impostor_wins"
+        # Ansonsten: Spiel läuft normal weiter, nächster Spieler ist dran
+        # Die turn order bleibt unverändert, da niemand eliminiert wurde
+
+def update_turn_after_elimination(game_data, eliminated_player_id):
+    """Aktualisiert die Spielreihenfolge nach einer Elimination"""
+    current_index = game_data.get("current_turn_index", 0)
+    turn_order = game_data.get("turn_order", [])
+
+    # Get updated active players after elimination
+    active_turn_order = [pid for pid in turn_order
+                       if not game_data["players"].get(pid, {}).get("eliminated", False)
+                       and pid not in game_data.get("eliminated_players", [])]
+
+    if active_turn_order:
+        # Get the current player
+        if current_index < len(turn_order):
+            current_player_id = turn_order[current_index]
+        else:
+            current_player_id = turn_order[0] if turn_order else None
+
+        # If current player was eliminated or is no longer in active turn order
+        if current_player_id not in active_turn_order or current_player_id == eliminated_player_id:
+            # Find the index of the current player in the original turn order
+            current_idx_in_original = -1
+            for i, pid in enumerate(turn_order):
+                if pid == current_player_id:
+                    current_idx_in_original = i
+                    break
+
+            # Find the next active player in the turn order
+            next_idx_in_original = (current_idx_in_original + 1) % len(turn_order)
+            attempts = 0
+            while attempts < len(turn_order):
+                next_player_id = turn_order[next_idx_in_original]
+                if next_player_id in active_turn_order:
+                    game_data["current_turn_index"] = next_idx_in_original
+                    break
+                next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
+                attempts += 1
+
 
 def update_turn_after_elimination(game_data, eliminated_player_id):
     """Aktualisiert die Spielreihenfolge nach einer Elimination"""

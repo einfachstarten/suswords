@@ -400,11 +400,9 @@ function updateVoteProgress(voteData) {
 
 async function showProcessingPhase() {
   console.log("[VOTE] Showing processing phase");
-
   currentVotePhase = VOTE_PHASES.PROCESSING;
 
-  hideVotingSection();
-  hideSuspectWaitingSection();
+  hideAllVotingSections(); // <- FIXED: war hideVotingSection()
 
   const processingSection = document.getElementById("processingSection");
   if (processingSection) {

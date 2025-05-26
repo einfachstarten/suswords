@@ -1,6 +1,6 @@
 {
-  "build_time": "2025-05-25T21:10:59.739937",
-  "build_timestamp": 1748207459,
+  "build_time": "2025-05-26T10:18:43.126610",
+  "build_timestamp": 1748254723,
   "files": {
     "css/game.css": {
       "hash": "718936dd",
@@ -15,8 +15,8 @@
       "versioned_path": "css/join.css?v=7963fe9e"
     },
     "js/game.js": {
-      "hash": "9e2ef61d",
-      "versioned_path": "js/game.js?v=9e2ef61d"
+      "hash": "a32c2eff",
+      "versioned_path": "js/game.js?v=a32c2eff"
     },
     "js/create_game.js": {
       "hash": "0701ac82",
@@ -55,5 +55,5 @@
       "versioned_path": "sw.js?v=24ea5992"
     }
   },
-  "global_version": "3281c900"
+  "global_version": "cf801788"
 }
