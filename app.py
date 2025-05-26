@@ -5,6 +5,7 @@ import os
 import json
 import random
 import time
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -125,27 +126,8 @@ def process_vote_result(game_data):
                 # Update turn order if needed
                 update_turn_after_elimination(game_data, suspect_id)
     else:
-        # Vote failed (unentschieden oder mehr down votes)
         votes_data["result"] = "vote_failed"
 
-        # BUGFIX: Bei gescheitertem Vote das Spiel normal weiterlaufen lassen
-        # Überprüfe trotzdem, ob das Spiel noch sinnvoll fortsetzbar ist
-        active_players = [pid for pid, p in game_data["players"].items()
-                         if not p.get("eliminated", False) and
-                         pid not in game_data.get("eliminated_players", [])]
-
-        impostor_id = game_data.get("impostorId")
-        impostor_still_in_game = (impostor_id in active_players)
-
-        # Nur dann das Spiel beenden, wenn tatsächlich nur noch 2 Spieler übrig sind
-        if impostor_still_in_game and len(active_players) <= 2:
-            game_data["status"] = "finished"
-            game_data["winner"] = "impostor"
-            game_data["end_reason"] = "not_enough_players"
-            votes_data["result"] = "impostor_wins"
-        # Ansonsten: Spiel läuft normal weiter, nächster Spieler ist dran
-        # Die turn order bleibt unverändert, da niemand eliminiert wurde
-
 def update_turn_after_elimination(game_data, eliminated_player_id):
     """Aktualisiert die Spielreihenfolge nach einer Elimination"""
     current_index = game_data.get("current_turn_index", 0)
@@ -183,43 +165,172 @@ def update_turn_after_elimination(game_data, eliminated_player_id):
                 next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
                 attempts += 1
 
+# ===== STATS & ANALYTICS FUNCTIONS =====
 
-def update_turn_after_elimination(game_data, eliminated_player_id):
-    """Aktualisiert die Spielreihenfolge nach einer Elimination"""
-    current_index = game_data.get("current_turn_index", 0)
-    turn_order = game_data.get("turn_order", [])
+def calculate_game_stats():
+    """Berechnet umfassende Spielstatistiken"""
+    try:
+        games = []
+        if os.path.exists(DATA_DIR):
+            for filename in os.listdir(DATA_DIR):
+                if filename.endswith('.json'):
+                    try:
+                        with open(os.path.join(DATA_DIR, filename), 'r') as f:
+                            game_data = json.load(f)
+                            games.append(game_data)
+                    except:
+                        continue
 
-    # Get updated active players after elimination
-    active_turn_order = [pid for pid in turn_order
-                       if not game_data["players"].get(pid, {}).get("eliminated", False)
-                       and pid not in game_data.get("eliminated_players", [])]
+        total_games = len(games)
+        active_games = len([g for g in games if g.get('status') not in ['finished', 'abandoned']])
+        finished_games = len([g for g in games if g.get('status') == 'finished'])
 
-    if active_turn_order:
-        # Get the current player
-        if current_index < len(turn_order):
-            current_player_id = turn_order[current_index]
-        else:
-            current_player_id = turn_order[0] if turn_order else None
+        # Spieler-Statistiken
+        total_players = 0
+        impostor_wins = 0
+        player_wins = 0
 
-        # If current player was eliminated or is no longer in active turn order
-        if current_player_id not in active_turn_order or current_player_id == eliminated_player_id:
-            # Find the index of the current player in the original turn order
-            current_idx_in_original = -1
-            for i, pid in enumerate(turn_order):
-                if pid == current_player_id:
-                    current_idx_in_original = i
-                    break
+        for game in games:
+            if game.get('status') == 'finished':
+                player_count = len(game.get('players', {}))
+                total_players += player_count
 
-            # Find the next active player in the turn order
-            next_idx_in_original = (current_idx_in_original + 1) % len(turn_order)
-            attempts = 0
-            while attempts < len(turn_order):
-                next_player_id = turn_order[next_idx_in_original]
-                if next_player_id in active_turn_order:
-                    game_data["current_turn_index"] = next_idx_in_original
-                    break
-                next_idx_in_original = (next_idx_in_original + 1) % len(turn_order)
-                attempts += 1
+                winner = game.get('winner')
+                if winner == 'impostor':
+                    impostor_wins += 1
+                elif winner == 'players':
+                    player_wins += 1
+
+        # Timeline für letzte 30 Tage
+        timeline = calculate_timeline_stats(games, 30)
+
+        return {
+            'total_games': total_games,
+            'active_games': active_games,
+            'finished_games': finished_games,
+            'total_players': total_players,
+            'impostor_wins': impostor_wins,
+            'player_wins': player_wins,
+            'impostor_win_rate': round((impostor_wins / max(impostor_wins + player_wins, 1)) * 100, 1),
+            'timeline': timeline
+        }
+    except Exception as e:
+        print(f"Error calculating stats: {e}")
+        return {
+            'total_games': 0,
+            'active_games': 0,
+            'finished_games': 0,
+            'total_players': 0,
+            'impostor_wins': 0,
+            'player_wins': 0,
+            'impostor_win_rate': 0,
+            'timeline': []
+        }
+
+def calculate_timeline_stats(games, days=30):
+    """Berechnet Timeline-Statistiken für die letzten X Tage"""
+    try:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+
+        timeline = []
+
+        for i in range(days):
+            date = start_date + timedelta(days=i)
+            date_str = date.strftime('%Y-%m-%d')
+
+            # Spiele für diesen Tag zählen
+            games_today = 0
+            players_today = 0
+
+            for game in games:
+                # Einfache Heuristik: Game ID als Zeitstempel verwenden oder Datei-Änderungszeit
+                try:
+                    game_file = os.path.join(DATA_DIR, f"{game.get('id', 'unknown')}.json")
+                    if os.path.exists(game_file):
+                        file_time = datetime.fromtimestamp(os.path.getmtime(game_file))
+                        if file_time.date() == date.date():
+                            games_today += 1
+                            players_today += len(game.get('players', {}))
+                except:
+                    continue
+
+            timeline.append({
+                'date': date_str,
+                'games': games_today,
+                'players': players_today
+            })
+
+        return timeline
+    except Exception as e:
+        print(f"Error calculating timeline: {e}")
+        return []
+
+def get_cleanup_stats():
+    """Cleanup-Statistiken - Fallback wenn cleanup.py nicht verfügbar"""
+    try:
+        # Versuche cleanup.py zu importieren
+        from cleanup import get_cleanup_stats as cleanup_get_stats
+        return cleanup_get_stats()
+    except ImportError:
+        # Fallback: Basic cleanup stats berechnen
+        try:
+            games = []
+            if os.path.exists(DATA_DIR):
+                for filename in os.listdir(DATA_DIR):
+                    if filename.endswith('.json'):
+                        try:
+                            with open(os.path.join(DATA_DIR, filename), 'r') as f:
+                                game_data = json.load(f)
+                                games.append(game_data)
+                        except:
+                            continue
+
+            total_games = len(games)
+            active_games = len([g for g in games if g.get('status') not in ['finished', 'abandoned']])
+            abandoned_candidates = 0
+            already_abandoned = len([g for g in games if g.get('status') == 'abandoned'])
+
+            # Einfache Age-Kategorisierung
+            now = time.time()
+            games_by_age = {'<1h': 0, '1-6h': 0, '6-24h': 0, '>24h': 0}
+
+            for game in games:
+                try:
+                    game_file = os.path.join(DATA_DIR, f"{game.get('id', 'unknown')}.json")
+                    if os.path.exists(game_file):
+                        file_time = os.path.getmtime(game_file)
+                        age_hours = (now - file_time) / 3600
+
+                        if age_hours < 1:
+                            games_by_age['<1h'] += 1
+                        elif age_hours < 6:
+                            games_by_age['1-6h'] += 1
+                        elif age_hours < 24:
+                            games_by_age['6-24h'] += 1
+                        else:
+                            games_by_age['>24h'] += 1
+                            if game.get('status') not in ['finished', 'abandoned']:
+                                abandoned_candidates += 1
+                except:
+                    continue
+
+            return {
+                'total_games': total_games,
+                'active_games': active_games,
+                'abandoned_candidates': abandoned_candidates,
+                'already_abandoned': already_abandoned,
+                'games_by_age': games_by_age
+            }
+        except Exception as e:
+            print(f"Error calculating cleanup stats: {e}")
+            return {
+                'total_games': 0,
+                'active_games': 0,
+                'abandoned_candidates': 0,
+                'already_abandoned': 0,
+                'games_by_age': {'<1h': 0, '1-6h': 0, '6-24h': 0, '>24h': 0}
+            }
 
 # ===== STATIC ROUTES =====
 
@@ -332,6 +443,142 @@ def join_page_general():
                          app_version=get_app_version(),
                          versioned_url=get_versioned_static_url,
                          build_time=get_build_time())
+
+# ===== STATS ROUTES =====
+
+@app.route("/debug/stats")
+def debug_stats():
+    """Umfassendes Debug-Interface mit Spielstatistiken"""
+    try:
+        stats = calculate_game_stats()
+        cleanup_stats = get_cleanup_stats()
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>SusWords Debug Stats</title>
+            <style>
+                body {{ font-family: monospace; margin: 20px; background: #1d1b3a; color: #fff; }}
+                h1, h2 {{ color: #00f0ff; }}
+                .card {{ background: #2c294d; padding: 20px; border-radius: 8px; margin: 15px 0; }}
+                .stat-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }}
+                .stat {{ background: #1b1a2e; padding: 15px; border-radius: 6px; text-align: center; }}
+                .big-number {{ font-size: 2em; font-weight: bold; color: #00f0ff; }}
+                .timeline {{ max-height: 200px; overflow-y: auto; }}
+                .btn {{ background: #00f0ff; color: #000; padding: 8px 16px; text-decoration: none; border-radius: 4px; margin: 5px; display: inline-block; }}
+                table {{ width: 100%; border-collapse: collapse; }}
+                th, td {{ border: 1px solid #444; padding: 8px; text-align: left; }}
+                th {{ background: #1b1a2e; }}
+            </style>
+        </head>
+        <body>
+            <h1>📊 SusWords Debug Statistics</h1>
+
+            <div class="card">
+                <h2>🎮 Spiel-Statistiken</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="big-number">{stats['total_games']}</div>
+                        <div>Spiele Gesamt</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['active_games']}</div>
+                        <div>Aktive Spiele</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['finished_games']}</div>
+                        <div>Beendete Spiele</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['total_players']}</div>
+                        <div>Spieler Gesamt</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🏆 Win-Rate Statistiken</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="big-number">{stats['impostor_wins']}</div>
+                        <div>Impostor Siege</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['player_wins']}</div>
+                        <div>Spieler Siege</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['impostor_win_rate']}%</div>
+                        <div>Impostor Win-Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🧹 Cleanup Status</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="big-number">{cleanup_stats['abandoned_candidates']}</div>
+                        <div>Abandoned Kandidaten</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{cleanup_stats['already_abandoned']}</div>
+                        <div>Bereits bereinigt</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📈 Timeline (letzte 7 Tage)</h2>
+                <div class="timeline">
+                    <table>
+                        <tr><th>Datum</th><th>Spiele</th><th>Spieler</th></tr>
+        """
+
+        # Nur letzte 7 Tage anzeigen
+        recent_timeline = stats['timeline'][-7:] if len(stats['timeline']) > 7 else stats['timeline']
+        for day in recent_timeline:
+            html += f"<tr><td>{day['date']}</td><td>{day['games']}</td><td>{day['players']}</td></tr>"
+
+        html += f"""
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🛠️ Admin Aktionen</h2>
+                <a href="/admin/cleanup" class="btn">🧹 Game Cleanup</a>
+                <a href="/ui" class="btn">🧪 Test UI</a>
+                <a href="/api/timeline" class="btn">📊 Timeline API</a>
+                <a href="/" class="btn">🏠 Home</a>
+            </div>
+
+            <div class="card">
+                <h2>ℹ️ System Info</h2>
+                <p><strong>App Version:</strong> {get_app_version()}</p>
+                <p><strong>Build Time:</strong> {get_build_time()}</p>
+                <p><strong>Data Directory:</strong> {DATA_DIR}</p>
+                <p><strong>Games Directory Size:</strong> {len(os.listdir(DATA_DIR)) if os.path.exists(DATA_DIR) else 0} files</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        return html
+
+    except Exception as e:
+        return f"<h1>Error</h1><pre>{str(e)}</pre>", 500
+
+@app.route("/stats")
+def public_stats():
+    stats = calculate_game_stats()
+    return render_template("stats.html",
+                         stats=stats,
+                         app_version=get_app_version(),
+                         versioned_url=get_versioned_static_url,
+                         build_time=get_build_time())
+
 
 # ===== DEBUG ROUTES =====
 
@@ -1142,6 +1389,284 @@ def restart_game():
         json.dump(game_data, f)
 
     return jsonify({"status": "restarted"})
+
+# ===== CLEANUP & TIMELINE ROUTES =====
+
+@app.route("/api/timeline")
+def timeline_api():
+    """Timeline API für die letzten 30 Tage"""
+    try:
+        days = int(request.args.get('days', 30))
+        days = min(max(days, 7), 90)  # Zwischen 7 und 90 Tagen
+
+        stats = calculate_game_stats()
+        return jsonify(stats['timeline'])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/timeline/<int:days>")
+def timeline_api_days(days):
+    """Timeline API für spezifische Anzahl Tage"""
+    try:
+        days = min(max(days, 7), 90)  # Zwischen 7 und 90 Tagen
+        stats = calculate_game_stats()
+        timeline_stats = calculate_timeline_stats([], days)
+        return jsonify(timeline_stats)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/admin/cleanup")
+def cleanup_interface():
+    """Admin Interface für Game Cleanup"""
+    try:
+        stats = get_cleanup_stats()
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>SusWords Game Cleanup</title>
+            <style>
+                body {{ font-family: monospace; margin: 20px; background: #1d1b3a; color: #fff; }}
+                h1, h2 {{ color: #00f0ff; }}
+                .card {{ background: #2c294d; padding: 20px; border-radius: 8px; margin: 15px 0; }}
+                .btn {{ background: #00f0ff; color: #000; padding: 10px 20px; border: none; border-radius: 4px; margin: 5px; cursor: pointer; text-decoration: none; display: inline-block; }}
+                .btn.danger {{ background: #ff3260; color: #fff; }}
+                .btn.warning {{ background: #ffcc00; color: #000; }}
+                .stat-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }}
+                .stat {{ background: #1b1a2e; padding: 15px; border-radius: 6px; text-align: center; }}
+                .big-number {{ font-size: 2em; font-weight: bold; color: #00f0ff; }}
+            </style>
+        </head>
+        <body>
+            <h1>🧹 SusWords Game Cleanup</h1>
+
+            <div class="card">
+                <h2>📊 Cleanup Statistics</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="big-number">{stats['total_games']}</div>
+                        <div>Spiele Gesamt</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['active_games']}</div>
+                        <div>Aktive Spiele</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['abandoned_candidates']}</div>
+                        <div>Abandoned Kandidaten (>24h)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['already_abandoned']}</div>
+                        <div>Bereits bereinigt</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>⏰ Spiele nach Alter</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="big-number">{stats['games_by_age']['<1h']}</div>
+                        <div>&lt; 1 Stunde</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['games_by_age']['1-6h']}</div>
+                        <div>1-6 Stunden</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['games_by_age']['6-24h']}</div>
+                        <div>6-24 Stunden</div>
+                    </div>
+                    <div class="stat">
+                        <div class="big-number">{stats['games_by_age']['>24h']}</div>
+                        <div>&gt; 24 Stunden (Kandidaten)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🛠️ Cleanup Aktionen</h2>
+                <p>⚠️ <strong>Vorsicht:</strong> Cleanup markiert abandoned Spiele als "finished" mit Grund "game_abandoned"</p>
+
+                <a href="/admin/cleanup/dry-run" class="btn">🔍 Dry Run (24h Threshold)</a>
+                <a href="/admin/cleanup/dry-run?hours=12" class="btn warning">🔍 Dry Run (12h Threshold)</a>
+                <a href="/admin/cleanup/execute" class="btn danger" onclick="return confirm('Wirklich abandoned Games bereinigen? Das kann nicht rückgängig gemacht werden!')">🧹 Cleanup Ausführen (24h)</a>
+
+                <p><a href="/debug/stats" style="color: #00f0ff;">📊 Zurück zu Stats</a> | <a href="/" style="color: #00f0ff;">🏠 Home</a></p>
+            </div>
+        </body>
+        </html>
+        """
+
+        return html
+
+    except Exception as e:
+        return f"<h1>Error</h1><pre>{str(e)}</pre>", 500
+
+@app.route("/admin/cleanup/dry-run")
+def cleanup_dry_run():
+    """Dry Run des Cleanups"""
+    try:
+        import io
+        import sys
+
+        hours = int(request.args.get('hours', 24))
+
+        # Capture output
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
+
+        try:
+            # Fallback cleanup simulation wenn cleanup.py nicht verfügbar
+            try:
+                from cleanup import cleanup_abandoned_games
+                cleanup_abandoned_games(dry_run=True, hours_threshold=hours)
+            except ImportError:
+                print(f"🔍 DRY RUN: Cleanup Simulation ({hours}h threshold)")
+                print("=" * 50)
+
+                games = []
+                if os.path.exists(DATA_DIR):
+                    for filename in os.listdir(DATA_DIR):
+                        if filename.endswith('.json'):
+                            try:
+                                with open(os.path.join(DATA_DIR, filename), 'r') as f:
+                                    game_data = json.load(f)
+                                    games.append((filename, game_data))
+                            except:
+                                continue
+
+                candidates = 0
+                now = time.time()
+
+                for filename, game in games:
+                    game_file = os.path.join(DATA_DIR, filename)
+                    if os.path.exists(game_file):
+                        file_time = os.path.getmtime(game_file)
+                        age_hours = (now - file_time) / 3600
+
+                        if (age_hours > hours and
+                            game.get('status') not in ['finished', 'abandoned']):
+                            candidates += 1
+                            print(f"📄 {filename}: {game.get('id', 'N/A')} - {age_hours:.1f}h alt - Status: {game.get('status', 'unknown')}")
+
+                print(f"\n📊 Ergebnis: {candidates} Spiele würden bereinigt werden")
+
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured_output.getvalue()
+
+        return f"""
+        <html>
+        <head><title>Cleanup Dry Run</title>
+        <style>body{{font-family:monospace;background:#1d1b3a;color:#fff;margin:20px;}}
+        pre{{background:#2c294d;padding:15px;border-radius:8px;}}
+        .btn{{background:#00f0ff;color:#000;padding:10px 20px;text-decoration:none;border-radius:4px;margin:10px 0;display:inline-block;}}
+        </style></head>
+        <body>
+        <h1>🔍 Cleanup Dry Run ({hours}h Threshold)</h1>
+        <pre>{output}</pre>
+        <a href="/admin/cleanup" class="btn">🔙 Zurück</a>
+        </body>
+        </html>
+        """
+
+    except Exception as e:
+        return f"<h1>Error</h1><pre>{str(e)}</pre>", 500
+
+@app.route("/admin/cleanup/execute")
+def cleanup_execute():
+    """Führt Cleanup tatsächlich aus"""
+    try:
+        import io
+        import sys
+
+        # Sicherheitscheck
+        confirm = request.args.get('confirm')
+        if confirm != 'yes':
+            return """
+            <html><body style="font-family:monospace;background:#1d1b3a;color:#fff;margin:20px;">
+            <h1>⚠️ Bestätigung erforderlich</h1>
+            <p>Um den Cleanup auszuführen, klicke:</p>
+            <a href="/admin/cleanup/execute?confirm=yes" style="background:#ff3260;color:#fff;padding:15px 30px;text-decoration:none;border-radius:4px;">✅ Cleanup ausführen</a>
+            <a href="/admin/cleanup" style="background:#666;color:#fff;padding:15px 30px;text-decoration:none;border-radius:4px;margin-left:10px;">❌ Abbrechen</a>
+            </body></html>
+            """
+
+        # Cleanup ausführen
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
+
+        try:
+            # Fallback cleanup implementation wenn cleanup.py nicht verfügbar
+            try:
+                from cleanup import cleanup_abandoned_games
+                cleanup_abandoned_games(dry_run=False, hours_threshold=24)
+            except ImportError:
+                print("🧹 CLEANUP: Ausführung gestartet (24h threshold)")
+                print("=" * 50)
+
+                games = []
+                if os.path.exists(DATA_DIR):
+                    for filename in os.listdir(DATA_DIR):
+                        if filename.endswith('.json'):
+                            try:
+                                with open(os.path.join(DATA_DIR, filename), 'r') as f:
+                                    game_data = json.load(f)
+                                    games.append((filename, game_data))
+                            except:
+                                continue
+
+                cleaned = 0
+                now = time.time()
+
+                for filename, game in games:
+                    game_file = os.path.join(DATA_DIR, filename)
+                    if os.path.exists(game_file):
+                        file_time = os.path.getmtime(game_file)
+                        age_hours = (now - file_time) / 3600
+
+                        if (age_hours > 24 and
+                            game.get('status') not in ['finished', 'abandoned']):
+
+                            # Spiel als abandoned markieren
+                            game['status'] = 'finished'
+                            game['end_reason'] = 'game_abandoned'
+                            game['winner'] = 'abandoned'
+
+                            with open(game_file, 'w') as f:
+                                json.dump(game, f)
+
+                            cleaned += 1
+                            print(f"✅ {filename}: {game.get('id', 'N/A')} - bereinigt ({age_hours:.1f}h alt)")
+
+                print(f"\n🎯 Cleanup abgeschlossen: {cleaned} Spiele bereinigt")
+
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured_output.getvalue()
+
+        return f"""
+        <html>
+        <head><title>Cleanup Ausgeführt</title>
+        <style>body{{font-family:monospace;background:#1d1b3a;color:#fff;margin:20px;}}
+        pre{{background:#2c294d;padding:15px;border-radius:8px;}}
+        .btn{{background:#00f0ff;color:#000;padding:10px 20px;text-decoration:none;border-radius:4px;margin:10px 0;display:inline-block;}}
+        </style></head>
+        <body>
+        <h1>✅ Cleanup Ausgeführt</h1>
+        <pre>{output}</pre>
+        <a href="/admin/cleanup" class="btn">🔙 Zurück zum Cleanup</a>
+        <a href="/debug/stats" class="btn">📊 Stats anzeigen</a>
+        </body>
+        </html>
+        """
+
+    except Exception as e:
+        return f"<h1>Error</h1><pre>{str(e)}</pre>", 500
 
 if __name__ == "__main__":
     # Version Manifest bei Entwicklung automatisch erstellen

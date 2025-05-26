@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta name="app-version" content="{{ app_version }}">
+  <meta name="build-time" content="{{ build_time }}">
+
+  <meta charset="UTF-8">
+  <title>SusWords Statistiken</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Rubik&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="{{ versioned_url("static/favicon.ico") }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #1d1b3a;
+      --panel: #2c294d;
+      --highlight: #00f0ff;
+      --accent: #ffcc00;
+      --success: #4bdc65;
+      --text: #ffffff;
+      --muted: #888;
+    }
+
+    body {
+      font-family: 'Rubik', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--panel) 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      max-width: 200px;
+      margin: 0 auto 20px;
+      display: block;
+    }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--highlight);
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: clamp(2rem, 5vw, 2.5rem);
+      text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 40px;
+      font-size: 1.1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: rgba(44, 41, 77, 0.8);
+      padding: 30px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 40px rgba(0, 240, 255, 0.2);
+      border-color: var(--highlight);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--highlight), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .stat-card:hover::before {
+      left: 100%;
+    }
+
+    .stat-number {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--highlight);
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .stat-label {
+      font-size: 1.1rem;
+      color: #ccc;
+      margin-bottom: 5px;
+    }
+
+    .stat-icon {
+      font-size: 2rem;
+      margin-bottom: 15px;
+      opacity: 0.8;
+    }
+
+    .chart-section {
+      background: rgba(44, 41, 77, 0.8);
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 32px rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+    }
+
+    .chart-title {
+      color: var(--highlight);
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      text-align: center;
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 20px 0;
+    }
+
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(75, 220, 101, 0.2);
+      color: var(--success);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    .back-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .back-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--highlight), #00ccff);
+      color: #000;
+      padding: 15px 30px;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.4);
+    }
+
+    .back-btn.secondary {
+      background: linear-gradient(135deg, var(--accent), #e6b800);
+    }
+
+    @keyframes countUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .stat-card.animate {
+      animation: countUp 0.6s ease-out forwards;
+      opacity: 0;
+    }
+
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+    .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+    .chart-section {
+      animation: countUp 0.6s ease-out forwards;
+      animation-delay: 0.5s;
+      opacity: 0;
+    }
+
+    .back-buttons {
+      animation: countUp 0.6s ease-out forwards;
+      animation-delay: 0.6s;
+      opacity: 0;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 15px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+      }
+
+      .stat-card {
+        padding: 20px;
+      }
+
+      .stat-number {
+        font-size: 2.2rem;
+      }
+
+      .chart-section {
+        padding: 20px;
+      }
+
+      .back-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .back-btn {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="{{ versioned_url("static/suswords.png") }}" alt="SusWords Logo" class="logo">
+
+    <h1>📊 SusWords Statistiken</h1>
+    <p class="subtitle">Live-Daten aus dem SusWords-Universum</p>
+
+    <div class="stats-grid">
+      <div class="stat-card animate">
+        <div class="stat-icon">🎮</div>
+        {% if stats.active_games > 0 %}
+        <div class="live-indicator">
+          <div class="live-dot"></div>
+          Live
+        </div>
+        {% endif %}
+        <div class="stat-number" data-target="{{ stats.total_games }}">{{ stats.total_games }}</div>
+        <div class="stat-label">Spiele gespielt</div>
+      </div>
+
+      <div class="stat-card animate">
+        <div class="stat-icon">👥</div>
+        <div class="stat-number" data-target="{{ stats.total_players }}">{{ stats.total_players }}</div>
+        <div class="stat-label">Spieler gesamt</div>
+      </div>
+
+      <div class="stat-card animate">
+        <div class="stat-icon">🕵️</div>
+        <div class="stat-number" data-target="{{ stats.impostor_win_rate }}">{{ stats.impostor_win_rate }}%</div>
+        <div class="stat-label">Impostor Win-Rate</div>
+      </div>
+
+      <div class="stat-card animate">
+        <div class="stat-icon">⚡</div>
+        {% if stats.active_games > 0 %}
+        <div class="live-indicator">
+          <div class="live-dot"></div>
+          {{ stats.active_games }} aktiv
+        </div>
+        {% endif %}
+        <div class="stat-number" data-target="{{ stats.active_games }}">{{ stats.active_games }}</div>
+        <div class="stat-label">Aktive Spiele</div>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2 class="chart-title">📈 Aktivität der letzten 7 Tage</h2>
+      <div class="chart-container">
+        <canvas id="timelineChart"></canvas>
+      </div>
+    </div>
+
+    <div class="back-buttons">
+      <a href="/" class="back-btn">🏠 Zurück zur Startseite</a>
+      <a href="/create" class="back-btn secondary">🎮 Spiel starten</a>
+    </div>
+  </div>
+
+  <script>
+    // Timeline Data from Flask
+    const timelineData = {{ stats.timeline | tojson }};
+
+    // Timeline Chart
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+
+    // Get last 7 days
+    const recentTimeline = timelineData.slice(-7);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: recentTimeline.map(d => {
+          const date = new Date(d.date);
+          return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit' });
+        }),
+        datasets: [{
+          label: 'Spiele',
+          data: recentTimeline.map(d => d.games),
+          borderColor: '#00f0ff',
+          backgroundColor: 'rgba(0, 240, 255, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#00f0ff',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }, {
+          label: 'Spieler',
+          data: recentTimeline.map(d => d.players),
+          borderColor: '#ffcc00',
+          backgroundColor: 'rgba(255, 204, 0, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#ffcc00',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: '#fff',
+              font: {
+                size: 14
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#aaa'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#aaa'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      }
+    });
+
+    // Counter Animation
+    function animateCounter(element) {
+      const target = parseInt(element.getAttribute('data-target'));
+      const duration = 2000;
+      const start = performance.now();
+      const isPercentage = element.textContent.includes('%');
+
+      function updateCounter(currentTime) {
+        const elapsed = currentTime - start;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(easeProgress * target);
+
+        element.textContent = current + (isPercentage ? '%' : '');
+
+        if (progress < 1) {
+          requestAnimationFrame(updateCounter);
+        } else {
+          element.textContent = target + (isPercentage ? '%' : '');
+        }
+      }
+
+      requestAnimationFrame(updateCounter);
+    }
+
+    // Start animations when page loads
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.querySelectorAll('.stat-number[data-target]').forEach(animateCounter);
+      }, 800);
+    });
+
+    // Auto-refresh every 30 seconds for live data
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        location.reload();
+      }
+    }, 30000);
+  </script>
+</body>
+</html>
