@@ -167,8 +167,10 @@ def update_turn_after_elimination(game_data, eliminated_player_id):
 
 # ===== STATS & ANALYTICS FUNCTIONS =====
 
+# Erweiterte calculate_game_stats() Funktion für app.py
+
 def calculate_game_stats():
-    """Berechnet umfassende Spielstatistiken"""
+    """Berechnet umfassende Spielstatistiken inklusive Launch-Tracking"""
     try:
         games = []
         if os.path.exists(DATA_DIR):
@@ -180,6 +182,12 @@ def calculate_game_stats():
                             games.append(game_data)
                     except:
                         continue
+
+        # Launch-Datum: 20. Mai 2025
+        from datetime import datetime, date
+        launch_date = date(2025, 5, 20)
+        today = date.today()
+        days_since_launch = (today - launch_date).days
 
         total_games = len(games)
         active_games = len([g for g in games if g.get('status') not in ['finished', 'abandoned']])
@@ -201,6 +209,9 @@ def calculate_game_stats():
                 elif winner == 'players':
                     player_wins += 1
 
+        # Launch-Statistiken berechnen
+        launch_stats = calculate_launch_stats(games, launch_date)
+
         # Timeline für letzte 30 Tage
         timeline = calculate_timeline_stats(games, 30)
 
@@ -212,7 +223,9 @@ def calculate_game_stats():
             'impostor_wins': impostor_wins,
             'player_wins': player_wins,
             'impostor_win_rate': round((impostor_wins / max(impostor_wins + player_wins, 1)) * 100, 1),
-            'timeline': timeline
+            'timeline': timeline,
+            'launch_stats': launch_stats,
+            'days_since_launch': days_since_launch
         }
     except Exception as e:
         print(f"Error calculating stats: {e}")
@@ -224,9 +237,74 @@ def calculate_game_stats():
             'impostor_wins': 0,
             'player_wins': 0,
             'impostor_win_rate': 0,
-            'timeline': []
+            'timeline': [],
+            'launch_stats': {
+                'total_days': 0,
+                'active_days': 0,
+                'avg_games_per_day': 0,
+                'best_day': {'date': 'N/A', 'games': 0},
+                'growth_trend': []
+            },
+            'days_since_launch': 0
         }
 
+def calculate_launch_stats(games, launch_date):
+    """Berechnet Launch-spezifische Statistiken"""
+    from datetime import datetime, timedelta
+
+    today = datetime.now().date()
+    total_days = (today - launch_date).days + 1  # +1 um Launch-Tag mitzuzählen
+
+    # Tägliche Spiel-Counts
+    daily_counts = {}
+
+    for game in games:
+        try:
+            # Game ID oder Datei-Änderungszeit für Datum verwenden
+            game_file = os.path.join(DATA_DIR, f"{game.get('id', 'unknown')}.json")
+            if os.path.exists(game_file):
+                file_time = datetime.fromtimestamp(os.path.getmtime(game_file))
+                game_date = file_time.date()
+
+                # Nur Spiele seit Launch zählen
+                if game_date >= launch_date:
+                    daily_counts[game_date] = daily_counts.get(game_date, 0) + 1
+        except:
+            continue
+
+    # Statistiken berechnen
+    active_days = len([count for count in daily_counts.values() if count > 0])
+    total_games_since_launch = sum(daily_counts.values())
+    avg_games_per_day = total_games_since_launch / max(total_days, 1)
+
+    # Bester Tag finden
+    best_day = {'date': 'N/A', 'games': 0}
+    if daily_counts:
+        best_date = max(daily_counts, key=daily_counts.get)
+        best_day = {
+            'date': best_date.strftime('%d.%m.%Y'),
+            'games': daily_counts[best_date]
+        }
+
+    # Wachstumstrend (letzte 7 Tage)
+    growth_trend = []
+    for i in range(7):
+        date = today - timedelta(days=6-i)
+        if date >= launch_date:
+            games_count = daily_counts.get(date, 0)
+            growth_trend.append({
+                'date': date.strftime('%d.%m'),
+                'games': games_count
+            })
+
+    return {
+        'total_days': total_days,
+        'active_days': active_days,
+        'avg_games_per_day': round(avg_games_per_day, 1),
+        'best_day': best_day,
+        'growth_trend': growth_trend,
+        'total_games_since_launch': total_games_since_launch
+    }
 def calculate_timeline_stats(games, days=30):
     """Berechnet Timeline-Statistiken für die letzten X Tage"""
     try:

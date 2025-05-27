@@ -119,6 +119,21 @@
       opacity: 0.8;
     }
 
+    /* Spezielle Launch-Card */
+    .launch-card {
+      background: linear-gradient(135deg, rgba(255, 204, 0, 0.1), rgba(255, 204, 0, 0.05));
+      border: 2px solid var(--accent);
+    }
+
+    .launch-card .stat-number {
+      color: var(--accent);
+      text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+
+    .launch-card::before {
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
     .chart-section {
       background: rgba(44, 41, 77, 0.8);
       padding: 30px;
@@ -142,6 +157,13 @@
       margin: 20px 0;
     }
 
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
     .live-indicator {
       display: inline-flex;
       align-items: center;
@@ -160,6 +182,18 @@
       background: var(--success);
       border-radius: 50%;
       animation: pulse 2s infinite;
+    }
+
+    .launch-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 204, 0, 0.2);
+      color: var(--accent);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
     }
 
     @keyframes pulse {
@@ -210,16 +244,20 @@
     .stat-card:nth-child(2) { animation-delay: 0.2s; }
     .stat-card:nth-child(3) { animation-delay: 0.3s; }
     .stat-card:nth-child(4) { animation-delay: 0.4s; }
+    .stat-card:nth-child(5) { animation-delay: 0.5s; }
 
     .chart-section {
       animation: countUp 0.6s ease-out forwards;
-      animation-delay: 0.5s;
+      animation-delay: 0.6s;
       opacity: 0;
     }
 
+    .charts-grid .chart-section:nth-child(1) { animation-delay: 0.7s; }
+    .charts-grid .chart-section:nth-child(2) { animation-delay: 0.8s; }
+
     .back-buttons {
       animation: countUp 0.6s ease-out forwards;
-      animation-delay: 0.6s;
+      animation-delay: 0.9s;
       opacity: 0;
     }
 
@@ -243,6 +281,11 @@
 
       .chart-section {
         padding: 20px;
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
       }
 
       .back-buttons {
@@ -302,12 +345,36 @@
         <div class="stat-number" data-target="{{ stats.active_games }}">{{ stats.active_games }}</div>
         <div class="stat-label">Aktive Spiele</div>
       </div>
+
+      <!-- NEUE LAUNCH-CARD -->
+      <div class="stat-card launch-card animate">
+        <div class="stat-icon">🚀</div>
+        <div class="launch-indicator">
+          Launch: 20.05.2025
+        </div>
+        <div class="stat-number" data-target="{{ stats.days_since_launch }}">{{ stats.days_since_launch }}</div>
+        <div class="stat-label">Tage seit Launch</div>
+      </div>
     </div>
 
-    <div class="chart-section">
-      <h2 class="chart-title">📈 Aktivität der letzten 7 Tage</h2>
-      <div class="chart-container">
-        <canvas id="timelineChart"></canvas>
+    <div class="charts-grid">
+      <div class="chart-section">
+        <h2 class="chart-title">📈 Aktivität der letzten 7 Tage</h2>
+        <div class="chart-container">
+          <canvas id="timelineChart"></canvas>
+        </div>
+      </div>
+
+      <!-- NEUE LAUNCH-STATISTIK CHART -->
+      <div class="chart-section">
+        <h2 class="chart-title">🚀 Wachstum seit Launch</h2>
+        <div class="chart-container">
+          <canvas id="launchChart"></canvas>
+        </div>
+        <div style="text-align: center; margin-top: 15px; color: var(--muted); font-size: 0.9rem;">
+          <strong>{{ stats.launch_stats.total_games_since_launch }}</strong> Spiele in <strong>{{ stats.days_since_launch }}</strong> Tagen
+          (⌀ {{ stats.launch_stats.avg_games_per_day }} pro Tag)
+        </div>
       </div>
     </div>
 
@@ -320,11 +387,10 @@
   <script>
     // Timeline Data from Flask
     const timelineData = {{ stats.timeline | tojson }};
+    const launchStats = {{ stats.launch_stats | tojson }};
 
-    // Timeline Chart
+    // Timeline Chart (bestehend)
     const ctx = document.getElementById('timelineChart').getContext('2d');
-
-    // Get last 7 days
     const recentTimeline = timelineData.slice(-7);
 
     new Chart(ctx, {
@@ -397,6 +463,59 @@
         interaction: {
           intersect: false,
           mode: 'index'
+        }
+      }
+    });
+
+    // NEUER LAUNCH CHART
+    const launchCtx = document.getElementById('launchChart').getContext('2d');
+
+    new Chart(launchCtx, {
+      type: 'bar',
+      data: {
+        labels: launchStats.growth_trend.map(d => d.date),
+        datasets: [{
+          label: 'Spiele pro Tag',
+          data: launchStats.growth_trend.map(d => d.games),
+          backgroundColor: 'rgba(255, 204, 0, 0.3)',
+          borderColor: '#ffcc00',
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: '#fff',
+              font: {
+                size: 14
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#aaa'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#aaa',
+              stepSize: 1
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          }
         }
       }
     });
